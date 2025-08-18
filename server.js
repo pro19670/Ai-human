@@ -103,7 +103,7 @@ function generateCSRFToken() {
 }
 
 function isValidEmail(email) {
-  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
 
