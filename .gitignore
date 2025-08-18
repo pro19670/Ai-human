@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# dotenv environment variables file
+.env
+
+# PM2
+.pm2/
+pids/
+logs/
+
+# Data files (contains user data)
+data/users.jsonl
+data/sessions.jsonl
+data/leads.jsonl
+
+# Backup files
+*.backup
+*.bak
+*.tar.gz
+*.zip
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
