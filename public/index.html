@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- SEO 메타 -->
-    <title>AI휴먼 - 행정·인증 대행 플랫폼 | 연구소·벤처·이노비즈 등록부터 나라장터까지</title>
-    <meta name="description" content="연구소 신설, 벤처기업 등록, 이노비즈·메인비즈 인증, 나라장터 등록 등 모든 행정·인증 대행을 원스톱으로. 전문가가 빠르고 정확하게 처리합니다.">
-    <meta name="keywords" content="행정대행, 연장대행, 기업인증, 이노비즈, 메인비즈, 벤처, 나라장터, 연구소등록, 홀로그램, 사이니지, 키오스크">
+    <title>AI휴먼 - 행정·인증 대행 플랫폼 | 연구소·벤처·이노비즈 등록부터 입찰 제안서 대행까지</title>
+    <meta name="description" content="연구소 신설, 벤처기업 등록, 이노비즈·메인비즈 인증, 나라장터 등록, 입찰 제안서 대행 등 모든 행정·인증 대행을 원스톱으로. 전문가가 빠르고 정확하게 처리합니다.">
+    <meta name="keywords" content="행정대행, 연장대행, 기업인증, 이노비즈, 메인비즈, 벤처, 나라장터, 연구소등록, 입찰제안서대행, 제안서작성, 입찰발표, 홀로그램, 사이니지, 키오스크">
     <meta name="author" content="AI휴먼">
     
     <!-- Open Graph -->
     <meta property="og:title" content="AI휴먼 - 행정·인증 대행 플랫폼">
-    <meta property="og:description" content="대행은 간단하게, 결과는 확실하게. 연구소·벤처·이노비즈부터 나라장터까지 전문가가 원스톱 처리">
+    <meta property="og:description" content="대행은 간단하게, 결과는 확실하게. 연구소·벤처·이노비즈부터 입찰 제안서 대행까지 전문가가 원스톱 처리">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://aihuman.example">
     <meta property="og:image" content="https://aihuman.example/assets/og-image.jpg">
@@ -21,7 +21,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="AI휴먼 - 행정·인증 대행 플랫폼">
-    <meta name="twitter:description" content="대행은 간단하게, 결과는 확실하게. 전문가가 원스톱으로 처리합니다.">
+    <meta name="twitter:description" content="대행은 간단하게, 결과는 확실하게. 입찰 제안서 대행부터 행정 인증까지 전문가가 원스톱으로 처리합니다.">
     <meta name="twitter:image" content="https://aihuman.example/assets/og-image.jpg">
     
     <!-- 파비콘 -->
@@ -66,13 +66,23 @@
                 <span class="brand-text">AI휴먼</span>
             </div>
             <div class="nav-links">
-                <a href="#services" class="nav-link">서비스</a>
-                <a href="#pricing" class="nav-link">가격</a>
-                <a href="#trust" class="nav-link">신뢰성</a>
-                <a href="#contact" class="nav-link">문의</a>
+                <a href="#services" class="nav-link" data-i18n="nav.services">서비스</a>
+                <a href="#pricing" class="nav-link" data-i18n="nav.pricing">가격</a>
+                <a href="#trust" class="nav-link" data-i18n="nav.trust">신뢰성</a>
+                <a href="#contact" class="nav-link" data-i18n="nav.contact">문의</a>
+                <div class="language-switch">
+                    <button class="lang-btn active" data-lang="ko" title="한국어">
+                        <span class="flag-icon">🇰🇷</span>
+                        <span class="lang-text">KO</span>
+                    </button>
+                    <button class="lang-btn" data-lang="en" title="English">
+                        <span class="flag-icon">🇺🇸</span>
+                        <span class="lang-text">EN</span>
+                    </button>
+                </div>
                 <div class="auth-buttons">
-                    <button class="btn-auth" id="loginBtn">로그인</button>
-                    <button class="btn-auth btn-primary" id="registerBtn">회원가입</button>
+                    <button class="btn-auth" id="loginBtn" data-i18n="auth.login">로그인</button>
+                    <button class="btn-auth btn-primary" id="registerBtn" data-i18n="auth.register">회원가입</button>
                 </div>
                 <div class="user-menu hidden" id="userMenu">
                     <span class="user-name" id="userName"></span>
@@ -92,19 +102,19 @@
         <div class="hero-background"></div>
         <div class="container">
             <div class="hero-content">
-                <h1 class="hero-title">
+                <h1 class="hero-title" data-i18n="hero.title">
                     대행은 간단하게,<br>
                     <span class="accent">결과는 확실하게.</span>
                 </h1>
-                <p class="hero-subtitle">
+                <p class="hero-subtitle" data-i18n="hero.subtitle">
                     연구소·벤처·이노비즈부터 나라장터까지,<br>
                     전문가가 원스톱으로 처리합니다.
                 </p>
                 <div class="hero-actions">
-                    <button class="btn btn-primary btn-large" id="quickConsultBtn">
+                    <button class="btn btn-primary btn-large" id="quickConsultBtn" data-i18n="hero.quickConsult">
                         빠른 상담 시작
                     </button>
-                    <button class="btn btn-secondary btn-large" onclick="document.getElementById('services').scrollIntoView({behavior: 'smooth'})">
+                    <button class="btn btn-secondary btn-large" onclick="document.getElementById('services').scrollIntoView({behavior: 'smooth'})" data-i18n="hero.viewServices">
                         서비스 한눈에
                     </button>
                 </div>
@@ -316,6 +326,98 @@
         </div>
     </section>
 
+    <!-- 입찰 제안서 대행 -->
+    <section class="bid-proposal" id="bid-proposal">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">입찰 제안서 대행</h2>
+                <p class="section-subtitle">전문가가 함께하는 입찰 성공 전략</p>
+            </div>
+            
+            <div class="bid-services-grid">
+                <div class="bid-service-card">
+                    <div class="service-icon">
+                        <i class="fas fa-search-dollar"></i>
+                    </div>
+                    <div class="service-content">
+                        <h3 class="service-title">입찰 제안서 분석</h3>
+                        <p class="service-description">
+                            입찰공고 정밀 분석부터 경쟁사 동향까지, 
+                            승률을 높이는 전략적 분석을 제공합니다.
+                        </p>
+                        <ul class="service-features">
+                            <li>입찰공고문 정밀 분석</li>
+                            <li>평가기준 및 배점표 해석</li>
+                            <li>경쟁사 동향 분석</li>
+                            <li>승산 검토 보고서</li>
+                        </ul>
+                        <div class="service-timeframe">처리기간: 3-5일</div>
+                        <div class="service-price">50만원~200만원</div>
+                        <div class="service-note">프로젝트 규모에 따라 견적이 달라집니다</div>
+                        <button class="btn btn-primary" onclick="openConsultModal('bid_analysis')">상담하기</button>
+                    </div>
+                </div>
+
+                <div class="bid-service-card">
+                    <div class="service-icon">
+                        <i class="fas fa-pen-fancy"></i>
+                    </div>
+                    <div class="service-content">
+                        <h3 class="service-title">입찰 제안서 작성</h3>
+                        <p class="service-description">
+                            전문 포맷과 경쟁력 포인트를 극대화한 
+                            입찰 제안서를 전문가가 작성해드립니다.
+                        </p>
+                        <ul class="service-features">
+                            <li>기술제안서 전문 작성</li>
+                            <li>사업수행계획서 작성</li>
+                            <li>가격제안서 최적화</li>
+                            <li>경쟁력 포인트 강조</li>
+                        </ul>
+                        <div class="service-timeframe">처리기간: 7-14일</div>
+                        <div class="service-price">200만원~1,000만원</div>
+                        <div class="service-note">입찰 규모와 요구사항에 따라 견적이 달라집니다</div>
+                        <button class="btn btn-primary" onclick="openConsultModal('bid_writing')">상담하기</button>
+                    </div>
+                </div>
+
+                <div class="bid-service-card">
+                    <div class="service-icon">
+                        <i class="fas fa-presentation"></i>
+                    </div>
+                    <div class="service-content">
+                        <h3 class="service-title">입찰 제안서 발표 대행</h3>
+                        <p class="service-description">
+                            PPT 제작부터 발표자 트레이닝까지, 
+                            완벽한 발표 준비를 지원합니다.
+                        </p>
+                        <ul class="service-features">
+                            <li>발표용 PPT 전문 제작</li>
+                            <li>발표자 트레이닝</li>
+                            <li>Q&A 대비 및 리허설</li>
+                            <li>현장 발표 대행(선택)</li>
+                        </ul>
+                        <div class="service-timeframe">처리기간: 3-7일</div>
+                        <div class="service-price">100만원~500만원</div>
+                        <div class="service-note">발표 복잡도와 대행 범위에 따라 견적이 달라집니다</div>
+                        <button class="btn btn-primary" onclick="openConsultModal('bid_presentation')">상담하기</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bid-cta-section">
+                <div class="cta-content">
+                    <h3>입찰 성공률을 높이는 전문 서비스</h3>
+                    <p>프로젝트 범위에 따라 견적이 달라집니다. 상담을 통해 정확한 견적을 확인하세요.</p>
+                    <button class="btn btn-accent btn-lg" onclick="openConsultModal('bid_proposal')">
+                        <i class="fas fa-handshake mr-2"></i>
+                        입찰 제안서 상담받기
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- 사이니지 & 키오스크 -->
     <section class="products" id="products">
         <div class="container">
@@ -384,6 +486,224 @@
                         <div class="product-price">옵션별 견적</div>
                         <button class="btn btn-outline">옵션 문의</button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 고객 후기 -->
+    <section class="testimonials" id="testimonials">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">고객 성공 사례</h2>
+                <p class="section-subtitle">AI휴먼과 함께한 기업들의 생생한 후기</p>
+            </div>
+            
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <div class="testimonial-quote">
+                            "이노비즈 인증 과정이 복잡했는데, AI휴먼 덕분에 3주 만에 깔끔하게 처리됐습니다. 
+                            전문성과 신속성 모두 만족스러워요."
+                        </div>
+                        <div class="testimonial-author">
+                            <div class="author-info">
+                                <div class="author-name">김○○ 대표</div>
+                                <div class="author-company">테크솔루션(주)</div>
+                                <div class="author-service">이노비즈 등록</div>
+                            </div>
+                            <div class="testimonial-rating">
+                                <span class="star">★★★★★</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <div class="testimonial-quote">
+                            "나라장터 등록이 까다로워서 포기할 뻔했는데, AI휴먼에서 A부터 Z까지 
+                            다 처리해 주셔서 정말 감사합니다. 이제 공공기관 사업도 참여할 수 있게 됐어요."
+                        </div>
+                        <div class="testimonial-author">
+                            <div class="author-info">
+                                <div class="author-name">박○○ 이사</div>
+                                <div class="author-company">스마트인더스트리</div>
+                                <div class="author-service">나라장터 등록</div>
+                            </div>
+                            <div class="testimonial-rating">
+                                <span class="star">★★★★★</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <div class="testimonial-quote">
+                            "연구소 신설 과정에서 AI휴먼의 전문 컨설팅을 받았습니다. 
+                            서류 준비부터 승인까지 체계적으로 관리해 주셔서 안심이 됐어요."
+                        </div>
+                        <div class="testimonial-author">
+                            <div class="author-info">
+                                <div class="author-name">이○○ 박사</div>
+                                <div class="author-company">바이오연구소</div>
+                                <div class="author-service">연구소 신설</div>
+                            </div>
+                            <div class="testimonial-rating">
+                                <span class="star">★★★★★</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <div class="testimonial-quote">
+                            "벤처기업 인증과 메인비즈를 동시에 진행했는데, 
+                            효율적인 일정 관리로 두 인증 모두 성공적으로 완료했습니다."
+                        </div>
+                        <div class="testimonial-author">
+                            <div class="author-info">
+                                <div class="author-name">최○○ 대표</div>
+                                <div class="author-company">핀테크이노베이션</div>
+                                <div class="author-service">벤처/메인비즈</div>
+                            </div>
+                            <div class="testimonial-rating">
+                                <span class="star">★★★★★</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="testimonials-summary">
+                <div class="summary-stats">
+                    <div class="summary-stat">
+                        <div class="stat-number">98%</div>
+                        <div class="stat-label">성공률</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="stat-number">500+</div>
+                        <div class="stat-label">처리 건수</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="stat-number">4.9</div>
+                        <div class="stat-label">만족도</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 홍보 영상 -->
+    <section class="video-showcase" id="videoShowcase">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">혁신 기술 소개</h2>
+                <p class="section-subtitle">차세대 홀로그램 사이니지와 AI 키오스크를 만나보세요</p>
+            </div>
+            
+            <div class="video-grid">
+                <div class="video-card">
+                    <div class="video-thumbnail">
+                        <div class="video-play-btn">
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                                <path fill="currentColor" d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="video-content">
+                        <h3 class="video-title">홀로그램 사이니지 시연</h3>
+                        <p class="video-description">
+                            입체 평면형 액자와 LED 화면형 광고판의 실제 구동 모습을 
+                            확인해보세요. 생생한 홀로그램 기술을 경험할 수 있습니다.
+                        </p>
+                        <div class="video-tags">
+                            <span class="video-tag">홀로그램</span>
+                            <span class="video-tag">사이니지</span>
+                            <span class="video-tag">광고</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="video-card">
+                    <div class="video-thumbnail">
+                        <div class="video-play-btn">
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                                <path fill="currentColor" d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="video-content">
+                        <h3 class="video-title">스마트 키오스크 체험</h3>
+                        <p class="video-description">
+                            AI 비서, 자리 지정, QR 코드, 타이머 등 
+                            다양한 기능이 통합된 키오스크의 실제 사용법을 소개합니다.
+                        </p>
+                        <div class="video-tags">
+                            <span class="video-tag">키오스크</span>
+                            <span class="video-tag">AI 비서</span>
+                            <span class="video-tag">자동화</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="video-card">
+                    <div class="video-thumbnail">
+                        <div class="video-play-btn">
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                                <path fill="currentColor" d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="video-content">
+                        <h3 class="video-title">인증 프로세스 안내</h3>
+                        <p class="video-description">
+                            이노비즈, 벤처기업, 연구소 설립 등 각종 인증 절차를 
+                            단계별로 상세하게 설명해드립니다.
+                        </p>
+                        <div class="video-tags">
+                            <span class="video-tag">인증</span>
+                            <span class="video-tag">프로세스</span>
+                            <span class="video-tag">컨설팅</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="video-card">
+                    <div class="video-thumbnail">
+                        <div class="video-play-btn">
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                                <path fill="currentColor" d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="video-content">
+                        <h3 class="video-title">고객 성공 사례</h3>
+                        <p class="video-description">
+                            AI휴먼과 함께한 고객들의 실제 성공 스토리와 
+                            비즈니스 성과를 영상으로 확인해보세요.
+                        </p>
+                        <div class="video-tags">
+                            <span class="video-tag">성공사례</span>
+                            <span class="video-tag">고객후기</span>
+                            <span class="video-tag">성과</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="video-showcase-cta">
+                <div class="cta-content">
+                    <h3>더 많은 영상이 궁금하신가요?</h3>
+                    <p>AI휴먼의 다양한 서비스와 기술을 YouTube 채널에서 만나보세요.</p>
+                    <a href="#" class="btn btn-primary">
+                        <svg viewBox="0 0 24 24" width="20" height="20" style="margin-right: 8px;">
+                            <path fill="currentColor" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                        YouTube 채널 방문
+                    </a>
                 </div>
             </div>
         </div>
@@ -668,8 +988,8 @@
                         <ul>
                             <li><a href="#faq">자주 묻는 질문</a></li>
                             <li><a href="#contact">상담 신청</a></li>
-                            <li><a href="/privacy">개인정보처리방침</a></li>
-                            <li><a href="/terms">이용약관</a></li>
+                            <li><a href="/privacy.html">개인정보처리방침</a></li>
+                            <li><a href="/terms.html">이용약관</a></li>
                         </ul>
                     </div>
                     
@@ -709,7 +1029,17 @@
     <div class="chat-overlay hidden" id="chatOverlay">
         <div class="chat-container">
             <div class="chat-header">
-                <h3>AI휴먼 상담</h3>
+                <div class="chat-title-area">
+                    <h3>AI휴먼 상담</h3>
+                    <div class="ai-mode-controls">
+                        <div class="ai-mode-indicator" id="aiModeIndicator">규칙 모드</div>
+                        <label class="ai-toggle-label">
+                            <input type="checkbox" id="aiModeToggle" class="ai-toggle-input">
+                            <span class="ai-toggle-slider"></span>
+                            <span class="ai-toggle-text">AI</span>
+                        </label>
+                    </div>
+                </div>
                 <button class="chat-close" id="chatClose" aria-label="챗봇 닫기">
                     <svg viewBox="0 0 24 24" width="20" height="20">
                         <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -805,7 +1135,23 @@
         </div>
     </div>
 
+    <!-- 쿠키 동의 배너 -->
+    <div class="cookie-banner" id="cookieBanner">
+        <div class="cookie-banner-content">
+            <div class="cookie-banner-text">
+                이 웹사이트는 서비스 향상을 위해 쿠키를 사용합니다. 
+                <a href="/privacy.html">개인정보처리방침</a>에서 자세한 내용을 확인하실 수 있습니다.
+            </div>
+            <div class="cookie-banner-actions">
+                <button class="btn btn-outline" id="cookieDecline">거부</button>
+                <button class="btn btn-primary" id="cookieAccept">동의</button>
+            </div>
+        </div>
+    </div>
+
     <!-- JavaScript -->
+    <script src="/i18n.js"></script>
+    <script src="/analytics.js"></script>
     <script src="/app.js"></script>
 </body>
 </html>

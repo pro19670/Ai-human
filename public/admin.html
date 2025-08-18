@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>어드민 대시보드 - AI휴먼</title>
+    <meta name="description" content="AI휴먼 관리자 대시보드">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="stylesheet" href="/style.css">
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+</head>
+<body>
+    <header class="header">
+        <nav class="nav container">
+            <div class="nav-brand">
+                <img src="/assets/logo.svg" alt="AI휴먼" class="logo">
+                <span class="brand-text">AI휴먼 관리자</span>
+            </div>
+            <div class="nav-links">
+                <a href="/" class="nav-link">홈으로</a>
+                <div class="user-menu" id="adminUserMenu">
+                    <span class="user-name" id="adminUserName"></span>
+                    <button class="btn btn-auth" id="adminLogoutBtn">로그아웃</button>
+                </div>
+                <div class="auth-buttons" id="adminAuthButtons">
+                    <button class="btn btn-auth btn-primary" id="adminLoginBtn">관리자 로그인</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="admin-page">
+        <div class="container">
+            <!-- 로그인이 필요한 상태 -->
+            <div class="admin-login-required" id="adminLoginRequired">
+                <div class="admin-login-card">
+                    <h1>관리자 로그인</h1>
+                    <p>관리자 권한이 필요한 페이지입니다.</p>
+                    <form class="admin-login-form" id="adminLoginForm">
+                        <div class="form-group">
+                            <label for="adminUsername">관리자 ID</label>
+                            <input type="text" id="adminUsername" name="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="adminPassword">비밀번호</label>
+                            <input type="password" id="adminPassword" name="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-large">로그인</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 대시보드 메인 -->
+            <div class="admin-dashboard hidden" id="adminDashboard">
+                <div class="dashboard-header">
+                    <h1>관리자 대시보드</h1>
+                    <p>AI휴먼 플랫폼 관리 콘솔</p>
+                </div>
+
+                <!-- 통계 카드 -->
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalUsers">0</div>
+                            <div class="stat-label">총 회원수</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💬</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalLeads">0</div>
+                            <div class="stat-label">상담 신청</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🤖</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalChats">0</div>
+                            <div class="stat-label">챗봇 대화</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="todayVisits">0</div>
+                            <div class="stat-label">오늘 방문</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 탭 네비게이션 -->
+                <div class="dashboard-tabs">
+                    <button class="tab-btn active" data-tab="users">회원 관리</button>
+                    <button class="tab-btn" data-tab="leads">리드 관리</button>
+                    <button class="tab-btn" data-tab="analytics">분석</button>
+                    <button class="tab-btn" data-tab="ai">AI 기능</button>
+                    <button class="tab-btn" data-tab="content">콘텐츠</button>
+                </div>
+
+                <!-- 회원 관리 탭 -->
+                <div class="tab-content active" id="usersTab">
+                    <div class="section-header">
+                        <h2>회원 관리</h2>
+                        <div class="section-actions">
+                            <input type="text" class="search-input" id="userSearch" placeholder="회원 검색...">
+                            <button class="btn btn-outline" id="refreshUsers">새로고침</button>
+                        </div>
+                    </div>
+                    <div class="data-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>사용자명</th>
+                                    <th>이메일</th>
+                                    <th>연락처</th>
+                                    <th>가입일</th>
+                                    <th>작업</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <!-- 동적으로 로드됨 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 리드 관리 탭 -->
+                <div class="tab-content" id="leadsTab">
+                    <div class="section-header">
+                        <h2>상담 신청 관리</h2>
+                        <div class="section-actions">
+                            <select class="filter-select" id="leadStatusFilter">
+                                <option value="">모든 상태</option>
+                                <option value="new">신규</option>
+                                <option value="contacted">연락완료</option>
+                                <option value="completed">처리완료</option>
+                            </select>
+                            <input type="text" class="search-input" id="leadSearch" placeholder="리드 검색...">
+                            <button class="btn btn-outline" id="refreshLeads">새로고침</button>
+                        </div>
+                    </div>
+                    <div class="data-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>이름</th>
+                                    <th>이메일</th>
+                                    <th>연락처</th>
+                                    <th>관심 서비스</th>
+                                    <th>신청일</th>
+                                    <th>상태</th>
+                                    <th>작업</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leadsTableBody">
+                                <!-- 동적으로 로드됨 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 분석 탭 -->
+                <div class="tab-content" id="analyticsTab">
+                    <div class="section-header">
+                        <h2>분석 대시보드</h2>
+                        <div class="section-actions">
+                            <select class="filter-select" id="analyticsDateRange">
+                                <option value="7">최근 7일</option>
+                                <option value="30">최근 30일</option>
+                                <option value="90">최근 90일</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="analytics-grid">
+                        <div class="analytics-card">
+                            <h3>인기 서비스 문의</h3>
+                            <div class="chart-container">
+                                <div id="serviceChart"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="analytics-card">
+                            <h3>챗봇 키워드 분석</h3>
+                            <div class="keyword-list" id="keywordAnalysis">
+                                <!-- 동적으로 로드됨 -->
+                            </div>
+                        </div>
+                        
+                        <div class="analytics-card">
+                            <h3>방문자 추이</h3>
+                            <div class="chart-container">
+                                <div id="visitorChart"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="analytics-card">
+                            <h3>전환율 통계</h3>
+                            <div class="conversion-stats" id="conversionStats">
+                                <div class="conversion-item">
+                                    <span class="conversion-label">방문자 → 회원가입</span>
+                                    <span class="conversion-rate">--%</span>
+                                </div>
+                                <div class="conversion-item">
+                                    <span class="conversion-label">회원가입 → 상담신청</span>
+                                    <span class="conversion-rate">--%</span>
+                                </div>
+                                <div class="conversion-item">
+                                    <span class="conversion-label">챗봇 이용 → 상담신청</span>
+                                    <span class="conversion-rate">--%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI 기능 탭 -->
+                <div class="tab-content" id="aiTab">
+                    <div class="ai-dashboard">
+                        <!-- AI 주간 요약 -->
+                        <div class="ai-summary-section">
+                            <div class="section-header">
+                                <h2>🤖 AI 주간 요약</h2>
+                                <div class="section-actions">
+                                    <button class="btn btn-outline" id="refreshAISummary">새로고침</button>
+                                </div>
+                            </div>
+                            
+                            <div class="ai-summary-grid">
+                                <div class="summary-card">
+                                    <div class="summary-icon">💬</div>
+                                    <div class="summary-content">
+                                        <div class="summary-title">상담 건수</div>
+                                        <div class="summary-value" id="aiWeeklyChats">0건</div>
+                                        <div class="summary-change">+15% 증가</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="summary-card">
+                                    <div class="summary-icon">🏆</div>
+                                    <div class="summary-content">
+                                        <div class="summary-title">주요 관심 서비스</div>
+                                        <div class="summary-value" id="topService">연구소 설립</div>
+                                        <div class="summary-change">35% 점유율</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="summary-card">
+                                    <div class="summary-icon">💰</div>
+                                    <div class="summary-content">
+                                        <div class="summary-title">예상 매출 범주</div>
+                                        <div class="summary-value" id="revenueRange">500-800만원</div>
+                                        <div class="summary-change">중급 서비스</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 자동 FAQ 관리 -->
+                        <div class="auto-faq-section">
+                            <div class="section-header">
+                                <h2>📝 자동 FAQ 생성</h2>
+                                <div class="section-actions">
+                                    <button class="btn btn-primary" id="generateFAQ">FAQ 생성</button>
+                                </div>
+                            </div>
+                            
+                            <div class="faq-list" id="autoFAQList">
+                                <div class="faq-item suggested">
+                                    <div class="faq-question">이노비즈 인증 요건이 뭔가요?</div>
+                                    <div class="faq-stats">
+                                        <span class="frequency">15회 질문</span>
+                                        <span class="confidence">95% 신뢰도</span>
+                                    </div>
+                                    <div class="faq-actions">
+                                        <button class="btn btn-outline btn-sm" onclick="approveAutoFAQ(this)">승인</button>
+                                        <button class="btn btn-outline btn-sm" onclick="rejectAutoFAQ(this)">거부</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SNS 홍보 문구 생성 -->
+                        <div class="marketing-generator-section">
+                            <div class="section-header">
+                                <h2>📱 SNS 홍보 문구 생성</h2>
+                            </div>
+                            
+                            <div class="marketing-form">
+                                <div class="form-group">
+                                    <label>서비스 선택</label>
+                                    <select id="serviceSelect" class="form-select">
+                                        <option value="">서비스를 선택하세요</option>
+                                        <option value="연구소 신설·연장">연구소 신설·연장</option>
+                                        <option value="벤처기업 등록·연장">벤처기업 등록·연장</option>
+                                        <option value="이노비즈 등록·연장">이노비즈 등록·연장</option>
+                                        <option value="나라장터 등록">나라장터 등록</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-primary" id="generateMarketingBtn">홍보 문구 생성</button>
+                            </div>
+                            
+                            <div class="marketing-results hidden" id="marketingResults">
+                                <div class="marketing-type">
+                                    <h4>짧은 형태 (SNS 게시물)</h4>
+                                    <div class="generated-text" id="shortMarketing"></div>
+                                    <button class="copy-btn" onclick="copyToClipboard('shortMarketing')">복사</button>
+                                </div>
+                                
+                                <div class="marketing-type">
+                                    <h4>긴 형태 (블로그/상세 설명)</h4>
+                                    <div class="generated-text" id="longMarketing"></div>
+                                    <button class="copy-btn" onclick="copyToClipboard('longMarketing')">복사</button>
+                                </div>
+                                
+                                <div class="marketing-type">
+                                    <h4>해시태그</h4>
+                                    <div class="generated-text" id="hashtagMarketing"></div>
+                                    <button class="copy-btn" onclick="copyToClipboard('hashtagMarketing')">복사</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 지식 베이스 관리 -->
+                        <div class="knowledge-management-section">
+                            <div class="section-header">
+                                <h2>📚 지식 베이스 관리</h2>
+                            </div>
+                            
+                            <div class="knowledge-form">
+                                <div class="form-group">
+                                    <label>파일명</label>
+                                    <input type="text" id="knowledgeFileName" class="form-input" placeholder="예: new_service_guide">
+                                </div>
+                                <div class="form-group">
+                                    <label>내용 (Markdown 형식)</label>
+                                    <textarea id="knowledgeContent" class="form-textarea" rows="10" 
+                                        placeholder="# 새로운 서비스 가이드&#10;&#10;## 개요&#10;새로운 서비스에 대한 설명..."></textarea>
+                                </div>
+                                <button class="btn btn-primary" id="updateKnowledgeBtn">지식 베이스 업데이트</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 콘텐츠 관리 탭 -->
+                <div class="tab-content" id="contentTab">
+                    <div class="section-header">
+                        <h2>콘텐츠 관리</h2>
+                        <div class="section-actions">
+                            <button class="btn btn-primary" id="addNewsBtn">공지사항 추가</button>
+                        </div>
+                    </div>
+                    
+                    <div class="content-grid">
+                        <div class="content-card">
+                            <h3>공지사항 관리</h3>
+                            <div class="news-list" id="newsList">
+                                <!-- 동적으로 로드됨 -->
+                            </div>
+                        </div>
+                        
+                        <div class="content-card">
+                            <h3>A/B 테스트</h3>
+                            <div class="ab-test-list" id="abTestList">
+                                <div class="ab-test-item">
+                                    <div class="ab-test-info">
+                                        <span class="ab-test-name">메인 CTA 버튼</span>
+                                        <span class="ab-test-status active">진행중</span>
+                                    </div>
+                                    <div class="ab-test-results">
+                                        <div class="ab-variant">
+                                            <span>A: "빠른 상담 시작"</span>
+                                            <span class="ab-rate">3.2%</span>
+                                        </div>
+                                        <div class="ab-variant">
+                                            <span>B: "무료 상담 받기"</span>
+                                            <span class="ab-rate">4.1%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 모달들 -->
+    <div class="modal hidden" id="leadDetailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>상담 신청 상세</h3>
+                <button class="modal-close" id="leadDetailClose">×</button>
+            </div>
+            <div class="modal-body" id="leadDetailBody">
+                <!-- 동적으로 로드됨 -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/admin.js"></script>
+</body>
+</html>

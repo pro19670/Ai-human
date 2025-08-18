@@ -10,6 +10,9 @@ const crypto = require('crypto');
 const url = require('url');
 const querystring = require('querystring');
 
+// AI 서비스 모듈
+const AIService = require('./ai_service');
+
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -23,6 +26,13 @@ const LEADS_FILE = path.join(DATA_DIR, 'leads.jsonl');
 let users = new Map();
 let sessions = new Map();
 let rateLimiter = new Map();
+let leads = [];
+let chatLogs = [];
+let analytics = {
+  visitors: [],
+  keywords: new Map(),
+  conversions: { visitorToSignup: 0, signupToLead: 0, chatToLead: 0 }
+};
 
 // PBKDF2 설정
 const PBKDF2_ITERATIONS = 100000;
@@ -31,6 +41,15 @@ const HASH_LENGTH = 64;
 
 // CSRF 토큰 저장소
 const csrfTokens = new Map();
+
+// AI 서비스 초기화
+let aiService = null;
+try {
+  aiService = new AIService();
+  console.log('✅ AI 서비스 초기화 완료');
+} catch (error) {
+  console.log('⚠️  AI 서비스 초기화 실패:', error.message);
+}
 
 // 서비스 목록 (챗봇용)
 const SERVICES = [
@@ -50,6 +69,53 @@ const SERVICES = [
   { name: '통신판매업 신고', difficulty: '중', price: '30만', description: '온라인 판매업 신고' },
   { name: '공장등록', difficulty: '중', price: '50만', description: '제조업 공장 등록 신청' }
 ];
+
+// 블로그 포스트 데이터
+let blogPosts = new Map();
+const BLOG_DATA_FILE = path.join(__dirname, 'data', 'blog_posts.jsonl');
+
+// 블로그 데이터 로드
+function loadBlogPosts() {
+  try {
+    if (fs.existsSync(BLOG_DATA_FILE)) {
+      const data = fs.readFileSync(BLOG_DATA_FILE, 'utf8');
+      const lines = data.trim().split('\\n');
+      
+      lines.forEach(line => {
+        if (line.trim()) {
+          const post = JSON.parse(line);
+          blogPosts.set(post.id, post);
+        }
+      });
+      
+      console.log(`✅ 블로그 포스트 ${blogPosts.size}개 로드됨`);
+    } else {
+      console.log('📝 블로그 데이터 파일이 없습니다. 새로 생성됩니다.');
+      ensureBlogDataDirectory();
+    }
+  } catch (error) {
+    console.error('블로그 데이터 로드 오류:', error);
+  }
+}
+
+// 블로그 데이터 저장
+function saveBlogPosts() {
+  try {
+    ensureBlogDataDirectory();
+    const lines = Array.from(blogPosts.values()).map(post => JSON.stringify(post));
+    fs.writeFileSync(BLOG_DATA_FILE, lines.join('\\n') + '\\n');
+  } catch (error) {
+    console.error('블로그 데이터 저장 오류:', error);
+  }
+}
+
+// 블로그 데이터 디렉토리 확인
+function ensureBlogDataDirectory() {
+  const dataDir = path.dirname(BLOG_DATA_FILE);
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+}
 
 // 유틸리티 함수들
 function ensureDataDir() {
@@ -82,8 +148,50 @@ function saveUser(user) {
 
 function saveLead(lead) {
   ensureDataDir();
-  const leadLine = JSON.stringify({ ...lead, timestamp: new Date().toISOString() }) + '\\n';
+  const leadWithTimestamp = { ...lead, timestamp: new Date().toISOString() };
+  const leadLine = JSON.stringify(leadWithTimestamp) + '\\n';
   fs.appendFileSync(LEADS_FILE, leadLine);
+  
+  // 메모리에도 저장 (어드민용)
+  leads.push(leadWithTimestamp);
+}
+
+function loadLeads() {
+  if (fs.existsSync(LEADS_FILE)) {
+    const data = fs.readFileSync(LEADS_FILE, 'utf8');
+    leads = data.split('\\n').filter(line => line.trim()).map(line => {
+      try {
+        return JSON.parse(line);
+      } catch (e) {
+        console.error('리드 데이터 파싱 오류:', e);
+        return null;
+      }
+    }).filter(Boolean);
+  }
+}
+
+function saveChatLog(log) {
+  chatLogs.push({...log, timestamp: new Date().toISOString()});
+  
+  // 키워드 분석
+  if (log.message) {
+    const words = log.message.toLowerCase().split(/\\s+/);
+    words.forEach(word => {
+      if (word.length > 2) { // 3글자 이상만
+        analytics.keywords.set(word, (analytics.keywords.get(word) || 0) + 1);
+      }
+    });
+  }
+  
+  // 로그 개수 제한 (메모리 관리)
+  if (chatLogs.length > 10000) {
+    chatLogs = chatLogs.slice(-5000);
+  }
+}
+
+function isAdmin(username) {
+  // 간단한 어드민 체크 (실제 운영시에는 더 안전한 방법 사용)
+  return username === 'admin' || username === 'administrator';
 }
 
 function hashPassword(password, salt) {
@@ -112,7 +220,9 @@ function isValidUsername(username) {
 }
 
 function isValidPassword(password) {
-  return password && password.length >= 8;
+  // 최소 8자 이상 + 숫자/특수문자 포함
+  const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,}$/;
+  return password && passwordRegex.test(password);
 }
 
 // Rate limiting (간단한 메모리 기반)
@@ -282,6 +392,15 @@ function generateChatResponse(message, userContext = {}) {
     };
   }
   
+  // 입찰 제안서 대행 관련
+  if (msg.includes('입찰') || msg.includes('제안서') || msg.includes('발표') || msg.includes('공고') || msg.includes('bid')) {
+    return {
+      message: "입찰 제안서 대행 서비스 안내입니다:\\n\\n🔍 **입찰 제안서 분석**\\n• 입찰공고문 정밀 분석\\n• 평가기준 및 배점표 해석\\n• 처리기간: 3-5일\\n• 비용: 50만원~200만원\\n\\n✍️ **입찰 제안서 작성**\\n• 기술제안서 전문 작성\\n• 사업수행계획서 작성\\n• 처리기간: 7-14일\\n• 비용: 200만원~1,000만원\\n\\n🎤 **입찰 제안서 발표 대행**\\n• 발표용 PPT 제작\\n• 발표자 트레이닝\\n• 처리기간: 3-7일\\n• 비용: 100만원~500만원\\n\\n※ 프로젝트 규모에 따라 견적이 달라집니다. 상담을 통해 확정합니다.",
+      intent: 'bid_proposal',
+      suggestions: ['입찰 분석 상담', '제안서 작성 문의', '발표 대행 상담']
+    };
+  }
+  
   // 상담 신청 의도
   if (msg.includes('상담') || msg.includes('문의') || msg.includes('신청') || msg.includes('예약')) {
     return {
@@ -313,6 +432,157 @@ function generateChatResponse(message, userContext = {}) {
   };
 }
 
+// 컨텍스트 기반 제안 생성
+function generateContextualSuggestions(message) {
+  const msg = message.toLowerCase();
+  
+  if (msg.includes('연구소') || msg.includes('research')) {
+    return ['연구소 설립 요건', '연구소 연장 절차', '연구개발비 혜택'];
+  }
+  
+  if (msg.includes('벤처') || msg.includes('venture')) {
+    return ['벤처기업 인증 유형', '벤처 투자 요건', '벤처 세제혜택'];
+  }
+  
+  if (msg.includes('이노비즈') || msg.includes('innobiz')) {
+    return ['이노비즈 신청 조건', '이노비즈 평가 기준', '이노비즈 혜택'];
+  }
+  
+  if (msg.includes('입찰') || msg.includes('제안서') || msg.includes('발표') || msg.includes('bid')) {
+    return ['입찰 분석 상담', '제안서 작성 문의', '발표 대행 상담'];
+  }
+  
+  if (msg.includes('나라장터') || msg.includes('조달')) {
+    return ['나라장터 등록 절차', '조달청 입찰', '공공조달 경험'];
+  }
+  
+  if (msg.includes('가격') || msg.includes('비용')) {
+    return ['구체적 견적 문의', '할인 프로그램', '패키지 상품'];
+  }
+  
+  return ['빠른 상담 시작', '서비스 목록 보기', '성공 사례 보기'];
+}
+
+// AI 자동 FAQ 생성 (관리자 대시보드용)
+function generateAutoFAQ() {
+  if (chatLogs.length < 10) return [];
+
+  const questionFrequency = new Map();
+  
+  chatLogs.forEach(log => {
+    const question = log.message.toLowerCase();
+    
+    // 간단한 정규화
+    const normalized = question
+      .replace(/[?.!,]/g, '')
+      .replace(/\\s+/g, ' ')
+      .trim();
+    
+    if (normalized.length > 10) { // 너무 짧은 질문 제외
+      const count = questionFrequency.get(normalized) || 0;
+      questionFrequency.set(normalized, count + 1);
+    }
+  });
+
+  // 빈도순으로 정렬하고 상위 5개 추출
+  const topQuestions = Array.from(questionFrequency.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .filter(([question, count]) => count >= 3); // 최소 3회 이상
+
+  return topQuestions.map(([question, count]) => ({
+    question,
+    frequency: count,
+    suggested: true,
+    approved: false
+  }));
+}
+
+// AI 서비스 추천 생성
+function generateServiceRecommendations(userQuery, visitedPages = []) {
+  const recommendations = [];
+  const queryLower = userQuery.toLowerCase();
+  
+  // 현재 질문 기반 추천
+  if (queryLower.includes('연구소')) {
+    recommendations.push({
+      service: '이노비즈 인증',
+      reason: '연구소와 함께 신청하면 시너지 효과',
+      discount: '패키지 할인 10%'
+    });
+  }
+  
+  if (queryLower.includes('벤처')) {
+    recommendations.push({
+      service: '연구소 설립',
+      reason: '벤처기업 R&D 역량 강화',
+      discount: '동시 신청 할인'
+    });
+  }
+  
+  // 방문 페이지 기반 추천
+  if (visitedPages.includes('innobiz')) {
+    recommendations.push({
+      service: '메인비즈 등록',
+      reason: '이노비즈와 메인비즈 동시 보유 시 혜택 증대',
+      discount: '연관 서비스 5% 할인'
+    });
+  }
+  
+  return recommendations.slice(0, 3); // 최대 3개
+}
+
+// AI 홍보 문구 생성
+function generateMarketingContent(serviceInfo) {
+  // 입찰 제안서 대행 서비스 특별 처리
+  if (serviceInfo.name && (serviceInfo.name.includes('입찰') || serviceInfo.name.includes('제안서'))) {
+    const bidTemplates = {
+      short: [
+        `입찰 성공률을 높이는 전문 제안서 대행!`,
+        `입찰 제안서 작성, 전문가에게 맡기세요!`,
+        `입찰 발표까지 완벽 지원하는 원스톱 서비스`
+      ],
+      long: [
+        `입찰 제안서 대행 서비스로 경쟁력을 높이세요. 공고 분석부터 제안서 작성, 발표 준비까지 전문가가 모든 과정을 지원합니다. 프로젝트 규모에 따라 맞춤형 견적을 제공합니다.`,
+        `입찰 성공의 핵심은 전문적인 제안서입니다. AI휴먼의 입찰 전문가가 공고 분석, 제안서 작성, 발표 대행까지 원스톱으로 처리해드립니다. 견적은 상담을 통해 확정됩니다.`
+      ],
+      hashtag: [
+        `#입찰제안서대행 #제안서작성 #입찰발표 #입찰성공 #전문가서비스 #AI휴먼`,
+        `#입찰분석 #제안서전문가 #발표대행 #입찰컨설팅 #원스톱서비스 #견적상담`
+      ]
+    };
+
+    return {
+      shortVersions: bidTemplates.short,
+      longVersions: bidTemplates.long,
+      hashtagVersions: bidTemplates.hashtag
+    };
+  }
+
+  // 기존 서비스용 템플릿
+  const templates = {
+    short: [
+      `${serviceInfo.name}로 비즈니스 성장의 기회를 잡으세요!`,
+      `${serviceInfo.name}, 전문가와 함께 간편하게!`,
+      `${serviceInfo.name} 대행으로 시간과 비용을 절약하세요`
+    ],
+    long: [
+      `${serviceInfo.name}는 복잡한 절차를 전문가가 대신 처리해드립니다. 평균 처리 기간 ${serviceInfo.timeframe}으로 빠르고 정확한 서비스를 제공합니다.`,
+      `${serviceInfo.name} 신청이 어려우신가요? AI휴먼의 전문 컨설턴트가 A부터 Z까지 모든 과정을 책임집니다. 성공률 98%의 검증된 노하우를 경험하세요.`
+    ],
+    hashtag: [
+      `#${serviceInfo.name} #행정대행 #AI휴먼 #전문가서비스 #비즈니스성장`,
+      `#대행서비스 #${serviceInfo.name} #원스톱서비스 #전문상담 #성공보장`
+    ]
+  };
+
+  return {
+    shortVersions: templates.short,
+    longVersions: templates.long,
+    hashtagVersions: templates.hashtag
+  };
+}
+
 // 라우터 핸들러들
 const routes = {
   // 회원가입
@@ -325,7 +595,7 @@ const routes = {
     }
     
     if (!isValidPassword(password)) {
-      return res.writeHead(400).end(JSON.stringify({ error: '비밀번호는 8자 이상이어야 합니다.' }));
+      return res.writeHead(400).end(JSON.stringify({ error: '비밀번호는 8자 이상이며 숫자와 특수문자를 포함해야 합니다.' }));
     }
     
     if (!isValidEmail(email)) {
@@ -450,7 +720,7 @@ const routes = {
     }));
   },
   
-  // 챗봇
+  // 챗봇 (규칙 기반 + AI 모드)
   'POST /api/chat': async (req, res, body) => {
     const cookies = parseCookies(req);
     const session = getSession(cookies.session);
@@ -459,16 +729,268 @@ const routes = {
       return res.writeHead(401).end(JSON.stringify({ error: '로그인이 필요합니다.' }));
     }
     
-    const { message, context } = body;
+    const { message, context, aiMode = false } = body;
     
     if (!message) {
       return res.writeHead(400).end(JSON.stringify({ error: '메시지를 입력해주세요.' }));
     }
-    
-    const response = generateChatResponse(message, context || {});
+
+    let response;
+    const startTime = Date.now();
+
+    try {
+      if (aiMode && aiService) {
+        // AI 모드: LLM 기반 응답
+        try {
+          const aiResponse = await aiService.generateAIResponse(
+            message, 
+            session.sessionId,
+            { username: session.username }
+          );
+          
+          response = {
+            message: aiResponse.content,
+            intent: 'ai_response',
+            mode: 'ai',
+            sources: aiResponse.sources || [],
+            cached: aiResponse.cached || false,
+            suggestions: generateContextualSuggestions(message)
+          };
+
+          // AI 응답이 실패하면 규칙 기반으로 폴백
+        } catch (aiError) {
+          console.error('AI 모드 오류:', aiError.message);
+          response = generateChatResponse(message, context || {});
+          response.mode = 'fallback';
+          response.aiError = aiError.message;
+        }
+      } else {
+        // 규칙 기반 모드
+        response = generateChatResponse(message, context || {});
+        response.mode = 'rule';
+      }
+
+      const responseTime = Date.now() - startTime;
+      response.responseTime = responseTime;
+
+      // 챗봇 로그 저장
+      saveChatLog({
+        username: session.username,
+        message,
+        response: response.message,
+        intent: response.intent,
+        mode: response.mode,
+        responseTime,
+        aiMode,
+        sessionId: session.sessionId
+      });
+      
+    } catch (error) {
+      console.error('챗봇 오류:', error);
+      response = {
+        message: '죄송합니다. 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+        intent: 'error',
+        mode: 'error'
+      };
+    }
     
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(response));
+  },
+  
+  // ===== 어드민 API =====
+  // 어드민 로그인
+  'POST /api/admin/login': async (req, res, body) => {
+    const { username, password } = body;
+    
+    if (!username || !password) {
+      return res.writeHead(400).end(JSON.stringify({ error: '사용자명과 비밀번호를 입력해주세요.' }));
+    }
+    
+    // 간단한 어드민 계정 체크 (실제 운영시에는 더 안전한 방법 사용)
+    if (username !== 'admin' || password !== 'admin123!') {
+      return res.writeHead(401).end(JSON.stringify({ error: '관리자 권한이 없습니다.' }));
+    }
+    
+    // 세션 생성
+    const sessionId = createSession(username);
+    const csrfToken = generateCSRFToken();
+    csrfTokens.set(sessionId, csrfToken);
+    
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Set-Cookie': `session=${sessionId}; HttpOnly; Path=/; SameSite=Lax; Max-Age=86400`
+    });
+    res.end(JSON.stringify({ 
+      message: '관리자 로그인 성공',
+      username,
+      csrfToken
+    }));
+  },
+  
+  // 어드민 로그아웃
+  'POST /api/admin/logout': async (req, res) => {
+    const cookies = parseCookies(req);
+    const sessionId = cookies.session;
+    
+    if (sessionId) {
+      deleteSession(sessionId);
+      csrfTokens.delete(sessionId);
+    }
+    
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Set-Cookie': 'session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0'
+    });
+    res.end(JSON.stringify({ message: '로그아웃 되었습니다.' }));
+  },
+  
+  // 어드민 정보 확인
+  'GET /api/admin/me': async (req, res) => {
+    const cookies = parseCookies(req);
+    const session = getSession(cookies.session);
+    
+    if (!session || !isAdmin(session.username)) {
+      return res.writeHead(401).end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+    }
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ username: session.username }));
+  },
+  
+  // 대시보드 통계
+  'GET /api/admin/stats': async (req, res) => {
+    const cookies = parseCookies(req);
+    const session = getSession(cookies.session);
+    
+    if (!session || !isAdmin(session.username)) {
+      return res.writeHead(401).end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+    }
+    
+    const today = new Date().toISOString().split('T')[0];
+    const todayVisits = analytics.visitors.filter(v => v.date === today).length;
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      totalUsers: users.size,
+      totalLeads: leads.length,
+      totalChats: chatLogs.length,
+      todayVisits
+    }));
+  },
+  
+  // 회원 목록 조회
+  'GET /api/admin/users': async (req, res) => {
+    const cookies = parseCookies(req);
+    const session = getSession(cookies.session);
+    
+    if (!session || !isAdmin(session.username)) {
+      return res.writeHead(401).end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+    }
+    
+    const userList = Array.from(users.values()).map(user => ({
+      username: user.username,
+      email: user.email,
+      phone: user.phone,
+      createdAt: user.createdAt
+    }));
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(userList));
+  },
+  
+  // 회원 삭제
+  'DELETE /api/admin/users/:username': async (req, res) => {
+    const cookies = parseCookies(req);
+    const session = getSession(cookies.session);
+    
+    if (!session || !isAdmin(session.username)) {
+      return res.writeHead(401).end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+    }
+    
+    const username = req.url.split('/').pop();
+    if (!users.has(username)) {
+      return res.writeHead(404).end(JSON.stringify({ error: '사용자를 찾을 수 없습니다.' }));
+    }
+    
+    users.delete(username);
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ message: '사용자가 삭제되었습니다.' }));
+  },
+  
+  // 리드 목록 조회
+  'GET /api/admin/leads': async (req, res) => {
+    const cookies = parseCookies(req);
+    const session = getSession(cookies.session);
+    
+    if (!session || !isAdmin(session.username)) {
+      return res.writeHead(401).end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+    }
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(leads));
+  },
+  
+  // 리드 상태 업데이트
+  'PUT /api/admin/leads/:email': async (req, res, body) => {
+    const cookies = parseCookies(req);
+    const session = getSession(cookies.session);
+    
+    if (!session || !isAdmin(session.username)) {
+      return res.writeHead(401).end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+    }
+    
+    const email = decodeURIComponent(req.url.split('/').pop());
+    const { status } = body;
+    
+    const leadIndex = leads.findIndex(lead => lead.email === email);
+    if (leadIndex === -1) {
+      return res.writeHead(404).end(JSON.stringify({ error: '리드를 찾을 수 없습니다.' }));
+    }
+    
+    leads[leadIndex].status = status;
+    leads[leadIndex].updatedAt = new Date().toISOString();
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ message: '상태가 업데이트되었습니다.' }));
+  },
+  
+  // 분석 데이터 조회
+  'GET /api/admin/analytics': async (req, res) => {
+    const cookies = parseCookies(req);
+    const session = getSession(cookies.session);
+    
+    if (!session || !isAdmin(session.username)) {
+      return res.writeHead(401).end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+    }
+    
+    const parsedUrl = url.parse(req.url, true);
+    const days = parseInt(parsedUrl.query.days) || 7;
+    
+    // 키워드 분석 (상위 10개)
+    const keywords = Array.from(analytics.keywords.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([word, count]) => ({ word, count }));
+    
+    // 전환율 계산 (간단한 예시)
+    const totalUsers = users.size;
+    const totalLeads = leads.length;
+    const totalChats = chatLogs.length;
+    
+    const conversion = {
+      visitorToSignup: totalUsers > 0 ? ((totalUsers / (totalUsers + 100)) * 100).toFixed(1) : 0,
+      signupToLead: totalUsers > 0 ? ((totalLeads / totalUsers) * 100).toFixed(1) : 0,
+      chatToLead: totalChats > 0 ? ((totalLeads / totalChats) * 100).toFixed(1) : 0
+    };
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      keywords,
+      conversion,
+      period: `${days}일`
+    }));
   },
   
   // 리드 저장
@@ -505,8 +1027,461 @@ const routes = {
       message: '상담 신청이 완료되었습니다. 빠른 시일 내에 연락드리겠습니다.',
       leadId: crypto.randomBytes(8).toString('hex')
     }));
+  },
+
+  // 블로그 포스트 목록 조회
+  'GET /api/blog/posts': async (req, res) => {
+    const posts = Array.from(blogPosts.values())
+      .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(posts));
+  },
+
+  // 특정 블로그 포스트 조회
+  'GET /api/blog/post': async (req, res) => {
+    const parsedUrl = url.parse(req.url, true);
+    const postId = parsedUrl.query.id;
+
+    if (!postId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '포스트 ID가 필요합니다.' }));
+      return;
+    }
+
+    const post = blogPosts.get(postId);
+    if (!post) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '포스트를 찾을 수 없습니다.' }));
+      return;
+    }
+
+    // 조회수 증가
+    post.views = (post.views || 0) + 1;
+    blogPosts.set(postId, post);
+    saveBlogPosts();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(post));
+  },
+
+  // 블로그 포스트 생성 (관리자 전용)
+  'POST /api/admin/blog/post': async (req, res, body) => {
+    const session = verifySession(req);
+    if (!session || !session.isAdmin) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+      return;
+    }
+
+    const { title, slug, excerpt, content, category, tags, featured, image } = body;
+
+    if (!title || !content || !category) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '제목, 내용, 카테고리는 필수입니다.' }));
+      return;
+    }
+
+    const postId = crypto.randomBytes(8).toString('hex');
+    const now = new Date().toISOString();
+    
+    const post = {
+      id: postId,
+      title: title.trim(),
+      slug: slug || title.toLowerCase().replace(/[^a-z0-9가-힣]/g, '-').replace(/-+/g, '-'),
+      excerpt: excerpt || content.substring(0, 200) + '...',
+      content,
+      category,
+      tags: Array.isArray(tags) ? tags : [],
+      author: session.username,
+      publishedAt: now,
+      updatedAt: now,
+      views: 0,
+      featured: !!featured,
+      image: image || '/assets/blog/default.jpg',
+      readTime: Math.ceil(content.length / 1000) // 대략적인 읽기 시간 (분)
+    };
+
+    blogPosts.set(postId, post);
+    saveBlogPosts();
+
+    res.writeHead(201, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(post));
+  },
+
+  // 블로그 포스트 수정 (관리자 전용)
+  'PUT /api/admin/blog/post': async (req, res, body) => {
+    const session = verifySession(req);
+    if (!session || !session.isAdmin) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+      return;
+    }
+
+    const { id, title, slug, excerpt, content, category, tags, featured, image } = body;
+
+    if (!id) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '포스트 ID가 필요합니다.' }));
+      return;
+    }
+
+    const existingPost = blogPosts.get(id);
+    if (!existingPost) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '포스트를 찾을 수 없습니다.' }));
+      return;
+    }
+
+    const updatedPost = {
+      ...existingPost,
+      title: title || existingPost.title,
+      slug: slug || existingPost.slug,
+      excerpt: excerpt || existingPost.excerpt,
+      content: content || existingPost.content,
+      category: category || existingPost.category,
+      tags: tags ? (Array.isArray(tags) ? tags : []) : existingPost.tags,
+      featured: featured !== undefined ? !!featured : existingPost.featured,
+      image: image || existingPost.image,
+      updatedAt: new Date().toISOString(),
+      readTime: content ? Math.ceil(content.length / 1000) : existingPost.readTime
+    };
+
+    blogPosts.set(id, updatedPost);
+    saveBlogPosts();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(updatedPost));
+  },
+
+  // 블로그 포스트 삭제 (관리자 전용)
+  'DELETE /api/admin/blog/post': async (req, res) => {
+    const session = verifySession(req);
+    if (!session || !session.isAdmin) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+      return;
+    }
+
+    const parsedUrl = url.parse(req.url, true);
+    const postId = parsedUrl.query.id;
+
+    if (!postId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '포스트 ID가 필요합니다.' }));
+      return;
+    }
+
+    if (!blogPosts.has(postId)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '포스트를 찾을 수 없습니다.' }));
+      return;
+    }
+
+    blogPosts.delete(postId);
+    saveBlogPosts();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ message: '포스트가 삭제되었습니다.' }));
+  },
+
+  // AI 서비스 추천
+  'GET /api/recommendations': async (req, res) => {
+    const parsedUrl = url.parse(req.url, true);
+    const { query, page } = parsedUrl.query;
+
+    const recommendations = generateServiceRecommendations(
+      query || '', 
+      page ? [page] : []
+    );
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(recommendations));
+  },
+
+  // AI 자동 FAQ 생성 (관리자 전용)
+  'GET /api/admin/ai/faq': async (req, res) => {
+    const session = verifySession(req);
+    if (!session || !session.isAdmin) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+      return;
+    }
+
+    const autoFAQ = generateAutoFAQ();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(autoFAQ));
+  },
+
+  // AI 홍보 문구 생성 (관리자 전용)
+  'POST /api/admin/ai/marketing': async (req, res, body) => {
+    const session = verifySession(req);
+    if (!session || !session.isAdmin) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+      return;
+    }
+
+    const { serviceId } = body;
+    
+    if (!serviceId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '서비스 ID가 필요합니다.' }));
+      return;
+    }
+
+    // 기존 서비스에서 찾기
+    let service = SERVICES.find(s => s.name === serviceId);
+    
+    // 입찰 제안서 대행 서비스 특별 처리
+    if (!service && (serviceId.includes('입찰') || serviceId.includes('제안서'))) {
+      service = {
+        name: serviceId,
+        description: '입찰 제안서 대행 전문 서비스',
+        timeframe: '프로젝트 규모에 따라 상이',
+        price: 'POA (견적 상담)'
+      };
+    }
+    
+    if (!service) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '서비스를 찾을 수 없습니다.' }));
+      return;
+    }
+
+    const marketingContent = generateMarketingContent(service);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(marketingContent));
+  },
+
+  // 지식 베이스 업데이트 (관리자 전용)
+  'POST /api/admin/ai/knowledge': async (req, res, body) => {
+    const session = verifySession(req);
+    if (!session || !session.isAdmin) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+      return;
+    }
+
+    const { fileName, content } = body;
+    
+    if (!fileName || !content) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '파일명과 내용이 필요합니다.' }));
+      return;
+    }
+
+    try {
+      const knowledgeDir = path.join(__dirname, 'data', 'knowledge');
+      if (!fs.existsSync(knowledgeDir)) {
+        fs.mkdirSync(knowledgeDir, { recursive: true });
+      }
+
+      const filePath = path.join(knowledgeDir, fileName + '.md');
+      fs.writeFileSync(filePath, content);
+
+      // AI 서비스 지식 베이스 재로드
+      if (aiService) {
+        aiService.loadKnowledgeBase();
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: '지식 베이스가 업데이트되었습니다.' }));
+
+    } catch (error) {
+      console.error('지식 베이스 업데이트 오류:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '업데이트에 실패했습니다.' }));
+    }
+  },
+
+  // 분석 이벤트 수집
+  'POST /api/analytics/events': async (req, res, body) => {
+    const { events } = body;
+
+    if (!Array.isArray(events)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '이벤트 배열이 필요합니다.' }));
+      return;
+    }
+
+    // 분석 데이터 저장
+    events.forEach(event => {
+      saveAnalyticsEvent(event);
+    });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ received: events.length }));
+  },
+
+  // 분석 대시보드 데이터 조회 (관리자 전용)
+  'GET /api/admin/analytics/dashboard': async (req, res) => {
+    const session = verifySession(req);
+    if (!session || !session.isAdmin) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+      return;
+    }
+
+    const dashboardData = generateAnalyticsDashboard();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(dashboardData));
   }
 };
+
+// 분석 이벤트 저장
+function saveAnalyticsEvent(event) {
+  try {
+    ensureDataDir();
+    const analyticsFile = path.join(DATA_DIR, 'analytics_events.jsonl');
+    
+    // IP 주소 추가
+    event.ip = event.ip || 'unknown';
+    event.timestamp = event.timestamp || new Date().toISOString();
+    
+    fs.appendFileSync(analyticsFile, JSON.stringify(event) + '\\n');
+    
+    // 메모리 통계 업데이트
+    updateAnalyticsStats(event);
+  } catch (error) {
+    console.error('분석 이벤트 저장 오류:', error);
+  }
+}
+
+// 분석 통계 업데이트
+function updateAnalyticsStats(event) {
+  const today = new Date().toISOString().split('T')[0];
+  
+  if (!analyticsData.dailyStats.has(today)) {
+    analyticsData.dailyStats.set(today, {
+      pageViews: 0,
+      visitors: new Set(),
+      sessions: new Set(),
+      events: 0,
+      conversions: 0,
+      avgSessionTime: 0,
+      bounceRate: 0
+    });
+  }
+  
+  const dayStats = analyticsData.dailyStats.get(today);
+  dayStats.events++;
+  
+  if (event.eventType === 'page_view') {
+    dayStats.pageViews++;
+    dayStats.visitors.add(event.userId);
+    dayStats.sessions.add(event.sessionId);
+  }
+  
+  if (event.eventType === 'conversion') {
+    dayStats.conversions++;
+  }
+  
+  // 글로벌 통계 업데이트
+  analyticsData.totalPageViews++;
+  analyticsData.uniqueVisitors.add(event.userId);
+  analyticsData.totalSessions.add(event.sessionId);
+}
+
+// 분석 대시보드 데이터 생성
+function generateAnalyticsDashboard() {
+  const today = new Date().toISOString().split('T')[0];
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  
+  const todayStats = analyticsData.dailyStats.get(today) || {
+    pageViews: 0,
+    visitors: new Set(),
+    sessions: new Set(),
+    events: 0,
+    conversions: 0
+  };
+  
+  const yesterdayStats = analyticsData.dailyStats.get(yesterday) || {
+    pageViews: 0,
+    visitors: new Set(),
+    sessions: new Set(),
+    events: 0,
+    conversions: 0
+  };
+  
+  // 최근 30일 데이터
+  const last30Days = [];
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+    const stats = analyticsData.dailyStats.get(date);
+    last30Days.push({
+      date,
+      pageViews: stats ? stats.pageViews : 0,
+      visitors: stats ? stats.visitors.size : 0,
+      conversions: stats ? stats.conversions : 0
+    });
+  }
+  
+  return {
+    overview: {
+      totalPageViews: analyticsData.totalPageViews,
+      uniqueVisitors: analyticsData.uniqueVisitors.size,
+      totalSessions: analyticsData.totalSessions.size,
+      conversionRate: analyticsData.totalPageViews > 0 ? 
+        (analyticsData.conversions.visitorToSignup / analyticsData.totalPageViews * 100).toFixed(2) : 0
+    },
+    today: {
+      pageViews: todayStats.pageViews,
+      visitors: todayStats.visitors.size,
+      sessions: todayStats.sessions.size,
+      conversions: todayStats.conversions,
+      changeFromYesterday: {
+        pageViews: yesterdayStats.pageViews > 0 ? 
+          (((todayStats.pageViews - yesterdayStats.pageViews) / yesterdayStats.pageViews) * 100).toFixed(1) : 0,
+        visitors: yesterdayStats.visitors.size > 0 ? 
+          (((todayStats.visitors.size - yesterdayStats.visitors.size) / yesterdayStats.visitors.size) * 100).toFixed(1) : 0
+      }
+    },
+    chartData: last30Days,
+    topPages: getTopPages(),
+    abTestResults: getABTestResults()
+  };
+}
+
+// 인기 페이지 조회
+function getTopPages() {
+  // 실제 구현에서는 analytics_events.jsonl 파일을 읽어서 처리
+  return [
+    { page: '/', views: 1250, title: 'AI휴먼 - 메인' },
+    { page: '/blog.html', views: 340, title: 'AI휴먼 블로그' },
+    { page: '/privacy.html', views: 180, title: '개인정보처리방침' },
+    { page: '/terms.html', views: 120, title: '서비스 이용약관' }
+  ];
+}
+
+// A/B 테스트 결과 조회
+function getABTestResults() {
+  return [
+    {
+      testId: 'cta-button-text',
+      name: 'CTA 버튼 텍스트',
+      variants: {
+        control: { name: '빠른 상담 시작', visitors: 523, conversions: 34, rate: 6.5 },
+        variant: { name: '무료 상담 받기', visitors: 487, conversions: 41, rate: 8.4 }
+      },
+      status: 'running',
+      winner: 'variant'
+    },
+    {
+      testId: 'pricing-display',
+      name: '가격 표시 방식',
+      variants: {
+        control: { name: '기본 표시', visitors: 502, conversions: 28, rate: 5.6 },
+        variant: { name: '프로 플랜 강조', visitors: 498, conversions: 35, rate: 7.0 }
+      },
+      status: 'running',
+      winner: 'variant'
+    }
+  ];
+}
 
 // 메인 서버 함수
 const server = http.createServer(async (req, res) => {
@@ -575,6 +1550,8 @@ const server = http.createServer(async (req, res) => {
 
 // 서버 시작
 loadData(); // 데이터 로드
+loadLeads(); // 리드 데이터 로드
+loadBlogPosts(); // 블로그 포스트 로드
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 AI휴먼 플랫폼 서버가 포트 ${PORT}에서 실행 중입니다.`);

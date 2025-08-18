@@ -7,6 +7,7 @@
 let currentUser = null;
 let csrfToken = null;
 let chatHistory = [];
+let cookieConsent = false;
 
 // ===== DOM 요소 선택 =====
 const elements = {
@@ -35,6 +36,11 @@ const elements = {
   chatInput: document.getElementById('chatInput'),
   chatSend: document.getElementById('chatSend'),
   chatSuggestions: document.getElementById('chatSuggestions'),
+  
+  // 쿠키 배너
+  cookieBanner: document.getElementById('cookieBanner'),
+  cookieAccept: document.getElementById('cookieAccept'),
+  cookieDecline: document.getElementById('cookieDecline'),
   
   // 기타
   contactForm: document.getElementById('contactForm'),
@@ -90,7 +96,23 @@ function validateUsername(username) {
 }
 
 function validatePassword(password) {
-  return password && password.length >= 8;
+  // 최소 8자 이상 + 숫자/특수문자 포함
+  const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,}$/;
+  return password && passwordRegex.test(password);
+}
+
+function validatePasswordStrength(password) {
+  const checks = {
+    length: password.length >= 8,
+    number: /[0-9]/.test(password),
+    special: /[!@#$%^&*]/.test(password),
+    letter: /[a-zA-Z]/.test(password)
+  };
+  
+  return {
+    isValid: Object.values(checks).every(check => check),
+    checks
+  };
 }
 
 // ===== API 함수 =====
@@ -218,8 +240,15 @@ async function handleRegister(formData) {
     return;
   }
   
-  if (!validatePassword(password)) {
-    showNotification('비밀번호는 8자 이상이어야 합니다.', 'error');
+  const passwordValidation = validatePasswordStrength(password);
+  if (!passwordValidation.isValid) {
+    let errorMsg = '비밀번호는 다음 조건을 만족해야 합니다:\n';
+    if (!passwordValidation.checks.length) errorMsg += '• 8자 이상\n';
+    if (!passwordValidation.checks.number) errorMsg += '• 숫자 포함\n';
+    if (!passwordValidation.checks.special) errorMsg += '• 특수문자 포함\n';
+    if (!passwordValidation.checks.letter) errorMsg += '• 영문자 포함\n';
+    
+    showNotification(errorMsg, 'error');
     return;
   }
   
@@ -275,7 +304,7 @@ async function handleLogout() {
 }
 
 // ===== 챗봇 관련 함수 =====
-async function sendChatMessage(message) {
+async function sendChatMessage(message, aiMode = false) {
   if (!currentUser) {
     showNotification('로그인이 필요합니다.', 'error');
     return;
@@ -285,16 +314,32 @@ async function sendChatMessage(message) {
     // 사용자 메시지 표시
     addChatMessage(message, 'user');
     
+    // 로딩 메시지 표시
+    const loadingId = addChatMessage('...', 'bot', true);
+    
+    const startTime = Date.now();
+    
     const response = await apiRequest('/api/chat', {
       method: 'POST',
       body: JSON.stringify({
         message,
-        context: { history: chatHistory }
+        context: { history: chatHistory },
+        aiMode: aiMode || getChatAIMode()
       })
     });
     
-    // 봇 응답 표시
-    addChatMessage(response.message, 'bot');
+    const responseTime = Date.now() - startTime;
+    
+    // 로딩 메시지 제거
+    removeChatMessage(loadingId);
+    
+    // 봇 응답 표시 (AI 모드 배지 포함)
+    addChatMessage(response.message, 'bot', false, {
+      mode: response.mode,
+      sources: response.sources,
+      responseTime,
+      cached: response.cached
+    });
     
     // 제안 버튼 업데이트
     if (response.suggestions && response.suggestions.length > 0) {
@@ -304,7 +349,7 @@ async function sendChatMessage(message) {
     // 히스토리 저장
     chatHistory.push(
       { role: 'user', message },
-      { role: 'bot', message: response.message, intent: response.intent }
+      { role: 'bot', message: response.message, intent: response.intent, mode: response.mode }
     );
     
     // 히스토리 길이 제한
@@ -318,15 +363,97 @@ async function sendChatMessage(message) {
   }
 }
 
-function addChatMessage(message, sender) {
+function addChatMessage(message, sender, isLoading = false, metadata = {}) {
   const messageElement = document.createElement('div');
+  const messageId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+  messageElement.id = messageId;
   messageElement.className = `chat-message ${sender}`;
-  messageElement.innerHTML = `
-    <div class="message-content">${message.replace(/\\n/g, '<br>')}</div>
-  `;
+  
+  let content = '';
+  
+  if (isLoading) {
+    content = `
+      <div class="message-content loading">
+        <div class="typing-indicator">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    `;
+  } else {
+    // AI 모드 배지 추가
+    let badge = '';
+    if (sender === 'bot' && metadata.mode) {
+      if (metadata.mode === 'ai') {
+        badge = '<div class="ai-badge">🤖 AI 보강 응답</div>';
+      } else if (metadata.mode === 'fallback') {
+        badge = '<div class="fallback-badge">⚠️ 규칙 기반 응답</div>';
+      }
+    }
+    
+    content = `
+      ${badge}
+      <div class="message-content">${message.replace(/\\n/g, '<br>')}</div>
+    `;
+    
+    // 소스 정보 추가
+    if (metadata.sources && metadata.sources.length > 0) {
+      content += `
+        <div class="message-sources">
+          <div class="sources-label">참고:</div>
+          <div class="sources-list">
+            ${metadata.sources.map(source => `<span class="source-item">${source}</span>`).join(', ')}
+          </div>
+        </div>
+      `;
+    }
+    
+    // 응답 시간 및 캐시 정보
+    if (metadata.responseTime) {
+      let timeInfo = `${metadata.responseTime}ms`;
+      if (metadata.cached) {
+        timeInfo += ' (캐시됨)';
+      }
+      content += `<div class="response-time">${timeInfo}</div>`;
+    }
+  }
+  
+  messageElement.innerHTML = content;
   
   elements.chatMessages.appendChild(messageElement);
   elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+  
+  return messageId;
+}
+
+function removeChatMessage(messageId) {
+  const messageElement = document.getElementById(messageId);
+  if (messageElement) {
+    messageElement.remove();
+  }
+}
+
+// AI 모드 상태 관리
+function getChatAIMode() {
+  const toggle = document.getElementById('aiModeToggle');
+  return toggle ? toggle.checked : false;
+}
+
+function toggleAIMode() {
+  const toggle = document.getElementById('aiModeToggle');
+  if (toggle) {
+    toggle.checked = !toggle.checked;
+    updateAIModeUI();
+  }
+}
+
+function updateAIModeUI() {
+  const isAIMode = getChatAIMode();
+  const indicator = document.getElementById('aiModeIndicator');
+  
+  if (indicator) {
+    indicator.textContent = isAIMode ? 'AI 모드' : '규칙 모드';
+    indicator.className = `ai-mode-indicator ${isAIMode ? 'ai-active' : 'rule-active'}`;
+  }
 }
 
 function updateChatSuggestions(suggestions) {
@@ -360,6 +487,12 @@ async function handleContactForm(formData) {
   const memo = formData.get('memo');
   const agreePrivacy = formData.get('agreePrivacy');
   
+  // 스팸 방지 검사
+  if (!checkSpamPrevention()) {
+    showNotification('너무 빠른 제출입니다. 잠시 후 다시 시도해주세요.', 'error');
+    return;
+  }
+  
   // 검증
   if (!name || !email) {
     showNotification('이름과 이메일은 필수입니다.', 'error');
@@ -377,6 +510,8 @@ async function handleContactForm(formData) {
   }
   
   try {
+    recordFormSubmission();
+    
     const result = await apiRequest('/api/lead', {
       method: 'POST',
       body: JSON.stringify({
@@ -470,6 +605,113 @@ function initFAQ() {
       }
     };
   });
+}
+
+// ===== 쿠키 관리 =====
+function checkCookieConsent() {
+  const consent = localStorage.getItem('cookieConsent');
+  if (consent === 'true') {
+    cookieConsent = true;
+    return true;
+  } else if (consent === 'false') {
+    cookieConsent = false;
+    return false;
+  }
+  
+  // 첫 방문자 - 배너 표시
+  if (elements.cookieBanner) {
+    setTimeout(() => {
+      elements.cookieBanner.classList.add('show');
+    }, 2000); // 2초 후 표시
+  }
+  return null;
+}
+
+function setCookieConsent(consent) {
+  cookieConsent = consent;
+  localStorage.setItem('cookieConsent', consent.toString());
+  
+  if (elements.cookieBanner) {
+    elements.cookieBanner.classList.remove('show');
+  }
+  
+  if (consent) {
+    // 쿠키 동의 시 분석 스크립트 등 활성화
+    enableAnalytics();
+  }
+}
+
+function enableAnalytics() {
+  // 간단한 방문자 추적 (쿠키 동의 시에만)
+  if (cookieConsent) {
+    const visitData = {
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      referrer: document.referrer,
+      page: window.location.pathname
+    };
+    
+    // 서버로 전송 (실제 구현 시)
+    console.log('Analytics data:', visitData);
+  }
+}
+
+// ===== 스팸 방지 기능 =====
+let formSubmissionCount = 0;
+let lastSubmissionTime = 0;
+
+function checkSpamPrevention() {
+  const now = Date.now();
+  const timeSinceLastSubmission = now - lastSubmissionTime;
+  
+  // 5초 이내 재제출 방지
+  if (timeSinceLastSubmission < 5000) {
+    return false;
+  }
+  
+  // 1분 내 3회 이상 제출 방지
+  if (formSubmissionCount >= 3 && timeSinceLastSubmission < 60000) {
+    return false;
+  }
+  
+  return true;
+}
+
+function recordFormSubmission() {
+  const now = Date.now();
+  
+  // 1분이 지났으면 카운트 리셋
+  if (now - lastSubmissionTime > 60000) {
+    formSubmissionCount = 0;
+  }
+  
+  formSubmissionCount++;
+  lastSubmissionTime = now;
+}
+
+function generateSimpleCaptcha() {
+  const num1 = Math.floor(Math.random() * 9) + 1;
+  const num2 = Math.floor(Math.random() * 9) + 1;
+  const operations = ['+', '-', '*'];
+  const operation = operations[Math.floor(Math.random() * operations.length)];
+  
+  let answer;
+  switch (operation) {
+    case '+':
+      answer = num1 + num2;
+      break;
+    case '-':
+      answer = Math.abs(num1 - num2);
+      break;
+    case '*':
+      answer = num1 * num2;
+      break;
+  }
+  
+  return {
+    question: `${num1} ${operation} ${num2} = ?`,
+    answer: answer
+  };
 }
 
 // ===== 스크롤 애니메이션 =====
@@ -631,6 +873,22 @@ function initEventListeners() {
     };
   }
   
+  // AI 모드 토글
+  const aiModeToggle = document.getElementById('aiModeToggle');
+  if (aiModeToggle) {
+    aiModeToggle.onchange = updateAIModeUI;
+    updateAIModeUI(); // 초기 상태 설정
+  }
+
+  // 쿠키 배너
+  if (elements.cookieAccept) {
+    elements.cookieAccept.onclick = () => setCookieConsent(true);
+  }
+  
+  if (elements.cookieDecline) {
+    elements.cookieDecline.onclick = () => setCookieConsent(false);
+  }
+  
   // 빠른 상담 버튼
   if (elements.quickConsultBtn) {
     elements.quickConsultBtn.onclick = () => {
@@ -686,6 +944,9 @@ function init() {
   initEventListeners();
   initFAQ();
   initMobileMenu();
+  
+  // 쿠키 동의 상태 확인
+  checkCookieConsent();
   
   // 인증 상태 확인
   checkAuthStatus();

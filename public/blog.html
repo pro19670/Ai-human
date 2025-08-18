@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- SEO 메타 -->
+    <title>AI휴먼 블로그 | 행정·인증 전문 정보와 뉴스</title>
+    <meta name="description" content="AI휴먼의 전문 블로그에서 행정 대행, 기업 인증, 연구소 설립 등 다양한 정보와 업계 뉴스를 만나보세요.">
+    <meta name="keywords" content="행정대행 블로그, 기업인증 뉴스, 이노비즈 정보, 벤처 등록 가이드, 나라장터 팁">
+    <meta name="author" content="AI휴먼">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="AI휴먼 블로그 - 행정·인증 전문 정보">
+    <meta property="og:description" content="행정 대행과 기업 인증에 대한 전문 정보와 업계 뉴스">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://aihuman.example/blog.html">
+    <meta property="og:image" content="https://aihuman.example/assets/blog-og-image.jpg">
+    
+    <!-- 파비콘 -->
+    <link rel="icon" href="/assets/favicon.ico" type="image/x-icon">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="/style.css">
+    
+    <!-- JSON-LD 구조화 데이터 -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Blog",
+        "name": "AI휴먼 블로그",
+        "description": "행정 대행과 기업 인증에 대한 전문 정보 블로그",
+        "url": "https://aihuman.example/blog.html",
+        "publisher": {
+            "@type": "Organization",
+            "name": "AI휴먼",
+            "url": "https://aihuman.example"
+        }
+    }
+    </script>
+</head>
+
+<body>
+    <!-- 헤더 -->
+    <header class="header">
+        <nav class="nav container">
+            <div class="nav-brand">
+                <img src="/assets/logo.svg" alt="AI휴먼" class="logo">
+                <a href="/" class="brand-text">AI휴먼</a>
+            </div>
+            <div class="nav-links">
+                <a href="/#services" class="nav-link" data-i18n="nav.services">서비스</a>
+                <a href="/#pricing" class="nav-link" data-i18n="nav.pricing">가격</a>
+                <a href="/#trust" class="nav-link" data-i18n="nav.trust">신뢰성</a>
+                <a href="/#contact" class="nav-link" data-i18n="nav.contact">문의</a>
+                <a href="/blog.html" class="nav-link active">블로그</a>
+                <div class="language-switch">
+                    <button class="lang-btn active" data-lang="ko" title="한국어">
+                        <span class="flag-icon">🇰🇷</span>
+                        <span class="lang-text">KO</span>
+                    </button>
+                    <button class="lang-btn" data-lang="en" title="English">
+                        <span class="flag-icon">🇺🇸</span>
+                        <span class="lang-text">EN</span>
+                    </button>
+                </div>
+                <div class="auth-buttons">
+                    <button class="btn-auth" id="loginBtn" data-i18n="auth.login">로그인</button>
+                    <button class="btn-auth btn-primary" id="registerBtn" data-i18n="auth.register">회원가입</button>
+                </div>
+                <div class="user-menu hidden" id="userMenu">
+                    <span class="user-name" id="userName"></span>
+                    <button class="btn-auth" id="logoutBtn" data-i18n="auth.logout">로그아웃</button>
+                </div>
+            </div>
+            <button class="mobile-menu-btn" id="mobileMenuBtn">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </nav>
+    </header>
+
+    <!-- 블로그 메인 섹션 -->
+    <main class="blog-main">
+        <div class="container">
+            <!-- 블로그 헤더 -->
+            <section class="blog-header">
+                <div class="blog-header-content">
+                    <h1 class="blog-title">AI휴먼 블로그</h1>
+                    <p class="blog-subtitle">행정 대행과 기업 인증에 대한 전문 정보와 업계 뉴스를 제공합니다</p>
+                </div>
+                
+                <!-- 블로그 필터 -->
+                <div class="blog-filters">
+                    <button class="filter-btn active" data-category="all">전체</button>
+                    <button class="filter-btn" data-category="guide">가이드</button>
+                    <button class="filter-btn" data-category="news">뉴스</button>
+                    <button class="filter-btn" data-category="tips">팁</button>
+                    <button class="filter-btn" data-category="case-study">사례 연구</button>
+                </div>
+            </section>
+
+            <!-- 최신 포스트 (Featured) -->
+            <section class="featured-posts">
+                <h2 class="section-title">주요 포스트</h2>
+                <div class="featured-grid" id="featuredPosts">
+                    <!-- Featured posts will be loaded here -->
+                </div>
+            </section>
+
+            <!-- 전체 포스트 목록 -->
+            <section class="all-posts">
+                <div class="posts-header">
+                    <h2 class="section-title">전체 포스트</h2>
+                    <div class="posts-controls">
+                        <div class="search-box">
+                            <input type="text" id="searchInput" placeholder="포스트 검색..." class="search-input">
+                            <button class="search-btn" id="searchBtn">
+                                <svg viewBox="0 0 24 24" width="20" height="20">
+                                    <path fill="currentColor" d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <select id="sortSelect" class="sort-select">
+                            <option value="date-desc">최신순</option>
+                            <option value="date-asc">오래된순</option>
+                            <option value="title-asc">제목순</option>
+                            <option value="views-desc">조회수순</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="posts-grid" id="postsGrid">
+                    <!-- Posts will be loaded here -->
+                </div>
+                
+                <!-- 페이지네이션 -->
+                <div class="pagination" id="pagination">
+                    <!-- Pagination will be generated here -->
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- 푸터 -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-sections">
+                    <div class="footer-section">
+                        <div class="footer-brand">
+                            <img src="/assets/logo.svg" alt="AI휴먼" class="footer-logo">
+                            <span class="brand-text">AI휴먼</span>
+                        </div>
+                        <p class="footer-description">
+                            전문가가 제공하는 행정·인증 원스톱 대행 서비스
+                        </p>
+                        <div class="social-links">
+                            <a href="#" class="social-link" title="YouTube">
+                                <svg viewBox="0 0 24 24" width="24" height="24">
+                                    <path fill="currentColor" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                </svg>
+                            </a>
+                            <a href="#" class="social-link" title="카카오톡">
+                                <svg viewBox="0 0 24 24" width="24" height="24">
+                                    <path fill="currentColor" d="M12 3C6.5 3 2 6.6 2 11.1c0 2.8 1.8 5.2 4.5 6.6L6 21l3.8-2.1c.7.1 1.4.1 2.2.1 5.5 0 10-3.6 10-8.1S17.5 3 12 3z"/>
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="footer-section">
+                        <h4>바로가기</h4>
+                        <ul>
+                            <li><a href="/">홈</a></li>
+                            <li><a href="/#services">서비스</a></li>
+                            <li><a href="/#pricing">가격</a></li>
+                            <li><a href="/blog.html">블로그</a></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="footer-section">
+                        <h4>법적 고지</h4>
+                        <ul>
+                            <li><a href="/privacy.html">개인정보처리방침</a></li>
+                            <li><a href="/terms.html">이용약관</a></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="footer-section">
+                        <h4>연락처</h4>
+                        <ul>
+                            <li>02-0000-0000</li>
+                            <li>contact@aihuman.example</li>
+                            <li>평일 09:00 - 18:00</li>
+                            <li>주말/공휴일 휴무</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <div class="footer-legal">
+                    <p>상호: AI휴먼 | 대표: 홍길동 | 사업자등록번호: 000-00-00000</p>
+                    <p>주소: 서울특별시 강남구 테크로 11, AI휴먼타워 7F</p>
+                </div>
+                <div class="footer-copyright">
+                    <p>&copy; 2024 AI휴먼. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 쿠키 동의 배너 -->
+    <div class="cookie-banner" id="cookieBanner">
+        <div class="cookie-banner-content">
+            <div class="cookie-banner-text">
+                이 웹사이트는 서비스 향상을 위해 쿠키를 사용합니다. 
+                <a href="/privacy.html">개인정보처리방침</a>에서 자세한 내용을 확인하실 수 있습니다.
+            </div>
+            <div class="cookie-banner-actions">
+                <button class="btn btn-outline" id="cookieDecline">거부</button>
+                <button class="btn btn-primary" id="cookieAccept">동의</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="/i18n.js"></script>
+    <script src="/blog.js"></script>
+    <script src="/app.js"></script>
+</body>
+</html>
