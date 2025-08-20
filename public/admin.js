@@ -9,9 +9,11 @@ let adminCsrfToken = null;
 let dashboardData = {
   users: [],
   leads: [],
+  biddingProjects: [],
   analytics: {},
   filteredUsers: [],
-  filteredLeads: []
+  filteredLeads: [],
+  filteredBiddingProjects: []
 };
 
 // ===== DOM 요소 선택 =====
@@ -29,6 +31,7 @@ const elements = {
   // 통계
   totalUsers: document.getElementById('totalUsers'),
   totalLeads: document.getElementById('totalLeads'),
+  totalBiddingProjects: document.getElementById('totalBiddingProjects'),
   totalChats: document.getElementById('totalChats'),
   todayVisits: document.getElementById('todayVisits'),
   
@@ -46,6 +49,17 @@ const elements = {
   leadSearch: document.getElementById('leadSearch'),
   refreshLeads: document.getElementById('refreshLeads'),
   leadsTableBody: document.getElementById('leadsTableBody'),
+  
+  // 입찰 관리
+  biddingStatusFilter: document.getElementById('biddingStatusFilter'),
+  biddingProjectSearch: document.getElementById('biddingProjectSearch'),
+  addBiddingProjectBtn: document.getElementById('addBiddingProjectBtn'),
+  biddingProjectsList: document.getElementById('biddingProjectsList'),
+  activeBiddingProjects: document.getElementById('activeBiddingProjects'),
+  completedBiddingProjects: document.getElementById('completedBiddingProjects'),
+  averageScore: document.getElementById('averageScore'),
+  onTimeDelivery: document.getElementById('onTimeDelivery'),
+  deadlineAlertsList: document.getElementById('deadlineAlertsList'),
   
   // 분석
   analyticsDateRange: document.getElementById('analyticsDateRange'),
@@ -477,6 +491,9 @@ function switchTab(tabName) {
     case 'leads':
       if (dashboardData.leads.length === 0) loadLeads();
       break;
+    case 'bidding':
+      if (dashboardData.biddingProjects.length === 0) loadBiddingProjects();
+      break;
     case 'analytics':
       loadAnalytics();
       break;
@@ -515,6 +532,21 @@ function initAdminEventListeners() {
   
   if (elements.leadStatusFilter) {
     elements.leadStatusFilter.onchange = filterLeads;
+  }
+  
+  // 입챠 관리 이벤트 리스너
+  if (elements.biddingProjectSearch) {
+    elements.biddingProjectSearch.oninput = filterBiddingProjects;
+  }
+  
+  if (elements.biddingStatusFilter) {
+    elements.biddingStatusFilter.onchange = filterBiddingProjects;
+  }
+  
+  if (elements.addBiddingProjectBtn) {
+    elements.addBiddingProjectBtn.onclick = () => {
+      console.log('새 입챠 프로젝트 추가 모달 열기');
+    };
   }
   
   // 새로고침 버튼
@@ -768,9 +800,230 @@ window.approveAutoFAQ = approveAutoFAQ;
 window.rejectAutoFAQ = rejectAutoFAQ;
 window.copyToClipboard = copyToClipboard;
 
+// ===== 입챠 프로젝트 관리 기능 =====
+
+// 입챠 프로젝트 데이터 로드
+async function loadBiddingProjects() {
+  try {
+    const response = await fetch('/api/admin/bidding/projects', {
+      headers: {
+        'X-CSRF-Token': adminCsrfToken
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      dashboardData.biddingProjects = data.projects || [];
+      dashboardData.filteredBiddingProjects = [...dashboardData.biddingProjects];
+      
+      updateBiddingStats();
+      renderBiddingProjects();
+      renderDeadlineAlerts();
+    }
+  } catch (error) {
+    console.error('입챠 프로젝트 로드 오류:', error);
+  }
+}
+
+// 입챠 통계 업데이트
+function updateBiddingStats() {
+  const projects = dashboardData.biddingProjects;
+  
+  const activeProjects = projects.filter(p => p.status === 'active').length;
+  const completedProjects = projects.filter(p => p.status === 'completed').length;
+  const totalScore = projects.filter(p => p.evaluation?.total_score).reduce((sum, p) => sum + p.evaluation.total_score, 0);
+  const avgScore = completedProjects > 0 ? (totalScore / completedProjects).toFixed(1) : 0;
+  const onTimeProjects = projects.filter(p => p.status === 'completed' && p.phase === 'delivered').length;
+  const onTimeRate = completedProjects > 0 ? Math.round((onTimeProjects / completedProjects) * 100) : 0;
+  
+  if (elements.totalBiddingProjects) elements.totalBiddingProjects.textContent = projects.length;
+  if (elements.activeBiddingProjects) elements.activeBiddingProjects.textContent = activeProjects;
+  if (elements.completedBiddingProjects) elements.completedBiddingProjects.textContent = completedProjects;
+  if (elements.averageScore) elements.averageScore.textContent = avgScore;
+  if (elements.onTimeDelivery) elements.onTimeDelivery.textContent = `${onTimeRate}%`;
+}
+
+// 입챠 프로젝트 렌더링
+function renderBiddingProjects() {
+  if (!elements.biddingProjectsList) return;
+  
+  const projects = dashboardData.filteredBiddingProjects;
+  
+  if (projects.length === 0) {
+    elements.biddingProjectsList.innerHTML = `
+      <tr>
+        <td colspan="9" class="no-data">등록된 입챠 프로젝트가 없습니다.</td>
+      </tr>
+    `;
+    return;
+  }
+  
+  elements.biddingProjectsList.innerHTML = projects.map(project => {
+    const deadline = new Date(project.deadline);
+    const isUrgent = (deadline - new Date()) < (3 * 24 * 60 * 60 * 1000);
+    const statusClass = getStatusClass(project.status);
+    const phaseText = getPhaseText(project.phase);
+    
+    return `
+      <tr class="${isUrgent ? 'urgent' : ''}">
+        <td><span class="project-id">${project.id}</span></td>
+        <td>
+          <div class="project-title">${project.title}</div>
+          <div class="project-desc">${project.description || ''}</div>
+        </td>
+        <td>${project.client}</td>
+        <td><span class="package-badge package-${project.package}">패키지 ${project.package}</span></td>
+        <td>
+          <div class="deadline-info ${isUrgent ? 'urgent' : ''}">
+            ${deadline.toLocaleDateString('ko-KR')}
+            ${isUrgent ? '<span class="urgent-badge">급함</span>' : ''}
+          </div>
+        </td>
+        <td><span class="status-badge ${statusClass}">${getStatusText(project.status)}</span></td>
+        <td><span class="phase-badge">${phaseText}</span></td>
+        <td>${project.evaluation?.total_score || '-'}</td>
+        <td class="actions">
+          <button class="btn-icon" onclick="viewBiddingProject('${project.id}')" title="상세보기">
+            <i class="fas fa-eye"></i>
+          </button>
+          <button class="btn-icon" onclick="editBiddingProject('${project.id}')" title="수정">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="btn-icon danger" onclick="deleteBiddingProject('${project.id}')" title="삭제">
+            <i class="fas fa-trash"></i>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// 데드라인 알림 렌더링
+function renderDeadlineAlerts() {
+  if (!elements.deadlineAlertsList) return;
+  
+  const today = new Date();
+  const urgentProjects = dashboardData.biddingProjects.filter(project => {
+    if (project.status !== 'active') return false;
+    const deadline = new Date(project.deadline);
+    const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+    return daysLeft <= 5;
+  }).sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+  
+  if (urgentProjects.length === 0) {
+    elements.deadlineAlertsList.innerHTML = `
+      <div class="alert-item success">
+        <i class="fas fa-check-circle"></i>
+        <span>데드라인이 임박한 프로젝트가 없습니다.</span>
+      </div>
+    `;
+    return;
+  }
+  
+  elements.deadlineAlertsList.innerHTML = urgentProjects.map(project => {
+    const deadline = new Date(project.deadline);
+    const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+    const urgencyClass = daysLeft <= 1 ? 'critical' : daysLeft <= 3 ? 'warning' : 'info';
+    
+    return `
+      <div class="alert-item ${urgencyClass}">
+        <i class="fas fa-exclamation-triangle"></i>
+        <div class="alert-content">
+          <div class="alert-title">${project.title}</div>
+          <div class="alert-desc">${project.client} - 패키지 ${project.package}</div>
+          <div class="alert-deadline">D-${daysLeft} (${deadline.toLocaleDateString('ko-KR')})</div>
+        </div>
+        <div class="alert-actions">
+          <button class="btn btn-sm" onclick="viewBiddingProject('${project.id}')"> 상세보기</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// 입챠 프로젝트 필터링
+function filterBiddingProjects() {
+  let filtered = [...dashboardData.biddingProjects];
+  
+  // 상태 필터
+  const statusFilter = elements.biddingStatusFilter?.value;
+  if (statusFilter && statusFilter !== 'all') {
+    filtered = filtered.filter(project => project.status === statusFilter);
+  }
+  
+  // 검색 필터
+  const searchTerm = elements.biddingProjectSearch?.value?.toLowerCase();
+  if (searchTerm) {
+    filtered = filtered.filter(project => 
+      project.title.toLowerCase().includes(searchTerm) ||
+      project.client.toLowerCase().includes(searchTerm) ||
+      project.id.toLowerCase().includes(searchTerm)
+    );
+  }
+  
+  dashboardData.filteredBiddingProjects = filtered;
+  renderBiddingProjects();
+}
+
+// 상태/단계 텍스트 헬퍼 함수들
+function getStatusClass(status) {
+  const classes = {
+    'active': 'status-active',
+    'completed': 'status-completed',
+    'on_hold': 'status-hold',
+    'cancelled': 'status-cancelled'
+  };
+  return classes[status] || 'status-default';
+}
+
+function getStatusText(status) {
+  const texts = {
+    'active': '진행중',
+    'completed': '완료',
+    'on_hold': '보류',
+    'cancelled': '취소'
+  };
+  return texts[status] || status;
+}
+
+function getPhaseText(phase) {
+  const texts = {
+    'kickoff': '킥오프',
+    'analysis': 'RFP 분석',
+    'draft1': '1차 초안',
+    'draft2': '2차 초안',
+    'design': '디자인',
+    'review': '품질검토',
+    'final': '최종화',
+    'delivered': '납픈완료'
+  };
+  return texts[phase] || phase;
+}
+
+// 입챠 프로젝트 액션 함수들
+function viewBiddingProject(projectId) {
+  console.log('입챠 프로젝트 상세보기:', projectId);
+}
+
+function editBiddingProject(projectId) {
+  console.log('입챠 프로젝트 수정:', projectId);
+}
+
+function deleteBiddingProject(projectId) {
+  if (confirm('정말로 이 프로젝트를 삭제하시겠습니까?')) {
+    console.log('입챠 프로젝트 삭제:', projectId);
+  }
+}
+
+// 전역 함수 노출
+window.viewBiddingProject = viewBiddingProject;
+window.editBiddingProject = editBiddingProject;
+window.deleteBiddingProject = deleteBiddingProject;
+window.filterBiddingProjects = filterBiddingProjects;
+
 // ===== 페이지 로드 후 초기화 =====
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initAdmin);
 } else {
-  initAdmin;
+  initAdmin();
 }

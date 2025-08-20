@@ -73,6 +73,13 @@
                             <div class="stat-label">상담 신청</div>
                         </div>
                     </div>
+                    <div class="stat-card bidding">
+                        <div class="stat-icon">🏆</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalBiddingProjects">0</div>
+                            <div class="stat-label">입찰 프로젝트</div>
+                        </div>
+                    </div>
                     <div class="stat-card">
                         <div class="stat-icon">🤖</div>
                         <div class="stat-content">
@@ -93,6 +100,7 @@
                 <div class="dashboard-tabs">
                     <button class="tab-btn active" data-tab="users">회원 관리</button>
                     <button class="tab-btn" data-tab="leads">리드 관리</button>
+                    <button class="tab-btn bidding-tab" data-tab="bidding">입찰 관리</button>
                     <button class="tab-btn" data-tab="analytics">분석</button>
                     <button class="tab-btn" data-tab="ai">AI 기능</button>
                     <button class="tab-btn" data-tab="content">콘텐츠</button>
@@ -157,6 +165,94 @@
                                 <!-- 동적으로 로드됨 -->
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- 입찰 관리 탭 -->
+                <div class="tab-content" id="biddingTab">
+                    <div class="section-header">
+                        <h2>입찰 프로젝트 관리</h2>
+                        <div class="section-actions">
+                            <select class="filter-select" id="biddingStatusFilter">
+                                <option value="all">전체 상태</option>
+                                <option value="active">진행중</option>
+                                <option value="completed">완료</option>
+                                <option value="on_hold">보류</option>
+                            </select>
+                            <button class="btn btn-primary" id="addBiddingProjectBtn">
+                                <i class="fas fa-plus"></i> 새 프로젝트
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 입찰 프로젝트 통계 -->
+                    <div class="bidding-stats">
+                        <div class="bidding-stat-card">
+                            <div class="stat-icon">🏁</div>
+                            <div class="stat-info">
+                                <div class="stat-number" id="activeBiddingProjects">0</div>
+                                <div class="stat-label">진행중 프로젝트</div>
+                            </div>
+                        </div>
+                        <div class="bidding-stat-card">
+                            <div class="stat-icon">✅</div>
+                            <div class="stat-info">
+                                <div class="stat-number" id="completedBiddingProjects">0</div>
+                                <div class="stat-label">완료 프로젝트</div>
+                            </div>
+                        </div>
+                        <div class="bidding-stat-card">
+                            <div class="stat-icon">🎯</div>
+                            <div class="stat-info">
+                                <div class="stat-number" id="averageScore">0</div>
+                                <div class="stat-label">평균 평가점수</div>
+                            </div>
+                        </div>
+                        <div class="bidding-stat-card">
+                            <div class="stat-icon">⏰</div>
+                            <div class="stat-info">
+                                <div class="stat-number" id="onTimeDelivery">0%</div>
+                                <div class="stat-label">정시 납품률</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 입찰 프로젝트 목록 -->
+                    <div class="bidding-projects-table">
+                        <div class="table-header">
+                            <h3>프로젝트 목록</h3>
+                            <div class="search-box">
+                                <input type="text" id="biddingProjectSearch" placeholder="프로젝트명, 고객사 검색...">
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>프로젝트명</th>
+                                        <th>고객사</th>
+                                        <th>패키지</th>
+                                        <th>마감일</th>
+                                        <th>상태</th>
+                                        <th>진행단계</th>
+                                        <th>평가점수</th>
+                                        <th>액션</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="biddingProjectsList">
+                                    <!-- 동적으로 로드됨 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 입찰 프로젝트 데드라인 알림 -->
+                    <div class="deadline-alerts">
+                        <h3>데드라인 알림</h3>
+                        <div id="deadlineAlertsList">
+                            <!-- 동적으로 로드됨 -->
+                        </div>
                     </div>
                 </div>
 

@@ -21,6 +21,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const USERS_FILE = path.join(DATA_DIR, 'users.jsonl');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.jsonl');
 const LEADS_FILE = path.join(DATA_DIR, 'leads.jsonl');
+const BIDDING_PROJECTS_FILE = path.join(DATA_DIR, 'bidding_projects.jsonl'); // 입찰 프로젝트 데이터
 
 // 메모리 저장소
 let users = new Map();
@@ -28,6 +29,7 @@ let sessions = new Map();
 let rateLimiter = new Map();
 let leads = [];
 let chatLogs = [];
+let biddingProjects = new Map(); // 입찰 프로젝트 저장소
 let analytics = {
   visitors: [],
   keywords: new Map(),
@@ -74,6 +76,10 @@ const SERVICES = [
 let blogPosts = new Map();
 const BLOG_DATA_FILE = path.join(__dirname, 'data', 'blog_posts.jsonl');
 
+// 입찰 프로젝트 데이터
+let biddingProjectsData = new Map();
+const BIDDING_DATA_FILE = path.join(__dirname, 'data', 'bidding_projects.jsonl');
+
 // 블로그 데이터 로드
 function loadBlogPosts() {
   try {
@@ -96,6 +102,102 @@ function loadBlogPosts() {
   } catch (error) {
     console.error('블로그 데이터 로드 오류:', error);
   }
+}
+
+// 입찰 프로젝트 데이터 로드
+function loadBiddingProjects() {
+  try {
+    if (fs.existsSync(BIDDING_DATA_FILE)) {
+      const data = fs.readFileSync(BIDDING_DATA_FILE, 'utf8');
+      const lines = data.trim().split('\\n');
+      
+      lines.forEach(line => {
+        if (line.trim()) {
+          const project = JSON.parse(line);
+          biddingProjectsData.set(project.id, project);
+        }
+      });
+      
+      console.log(`✅ 입찰 프로젝트 ${biddingProjectsData.size}개 로드됨`);
+    } else {
+      console.log('📝 입찰 프로젝트 데이터 파일이 없습니다. 새로 생성됩니다.');
+      ensureBiddingDataDirectory();
+    }
+  } catch (error) {
+    console.error('입찰 프로젝트 데이터 로드 오류:', error);
+  }
+}
+
+// 입찰 프로젝트 데이터 저장
+function saveBiddingProject(project) {
+  try {
+    biddingProjectsData.set(project.id, project);
+    
+    // 전체 데이터를 다시 저장 (업데이트 지원)
+    const allProjects = Array.from(biddingProjectsData.values());
+    const dataLines = allProjects.map(p => JSON.stringify(p)).join('\\n');
+    
+    if (!fs.existsSync(path.dirname(BIDDING_DATA_FILE))) {
+      fs.mkdirSync(path.dirname(BIDDING_DATA_FILE), { recursive: true });
+    }
+    
+    fs.writeFileSync(BIDDING_DATA_FILE, dataLines + '\\n', 'utf8');
+    return true;
+  } catch (error) {
+    console.error('입찰 프로젝트 저장 오류:', error);
+    return false;
+  }
+}
+
+function ensureBiddingDataDirectory() {
+  if (!fs.existsSync(path.dirname(BIDDING_DATA_FILE))) {
+    fs.mkdirSync(path.dirname(BIDDING_DATA_FILE), { recursive: true });
+  }
+  
+  // 기본 데모 프로젝트 생성
+  const demoProject = {
+    id: 'demo-project-001',
+    title: 'AI 기반 스마트시티 플랫폼 구축 제안서',
+    client: '○○시청',
+    status: 'completed',
+    package: 'C',
+    deadline: '2025-09-15',
+    budget: 500,
+    phase: 'delivered',
+    score: 87.5,
+    created: '2025-08-01T09:00:00.000Z',
+    updated: '2025-08-15T18:30:00.000Z',
+    manager: 'admin',
+    description: '스마트시티 통합 플랫폼 구축을 위한 기술제안서 작성 및 발표 대행',
+    deliverables: [
+      { type: 'analysis', name: 'RFP 분석보고서', status: 'completed', file: 'RFP_분석보고서_v1.0.pdf', updated: '2025-08-05' },
+      { type: 'proposal', name: '기술제안서', status: 'completed', file: '기술제안서_최종본_v3.2.hwp', updated: '2025-08-12' },
+      { type: 'presentation', name: '발표자료', status: 'completed', file: '발표자료_PT_v2.1.pptx', updated: '2025-08-14' }
+    ],
+    milestones: [
+      { phase: 'kickoff', name: '킥오프 미팅', status: 'completed', date: '2025-08-01' },
+      { phase: 'analysis', name: 'RFP 분석 완료', status: 'completed', date: '2025-08-05' },
+      { phase: 'draft1', name: '1차 초안 완료', status: 'completed', date: '2025-08-08' },
+      { phase: 'draft2', name: '2차 초안 완료', status: 'completed', date: '2025-08-11' },
+      { phase: 'final', name: '최종 납품', status: 'completed', date: '2025-08-15' }
+    ],
+    requirements: {
+      pages: 120,
+      sections: 8,
+      attachments: 15,
+      presentation_time: 20
+    },
+    evaluation: {
+      technical: 45,
+      business: 30,
+      price: 25,
+      total_score: 87.5,
+      rank: 2,
+      feedback: '기술적 우수성과 사업성이 높게 평가됨. 가격 경쟁력 보완 필요.'
+    }
+  };
+  
+  saveBiddingProject(demoProject);
 }
 
 // 블로그 데이터 저장
@@ -1256,6 +1358,173 @@ const routes = {
     res.end(JSON.stringify(marketingContent));
   },
 
+  // 입찰 프로젝트 목록 조회 (관리자 전용)
+  'GET /api/admin/bidding/projects': async (req, res) => {
+    const session = verifySession(req);
+    if (!session || !session.isAdmin) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+      return;
+    }
+    
+    const projects = Array.from(biddingProjectsData.values())
+      .sort((a, b) => new Date(b.created) - new Date(a.created));
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ projects }));
+  },
+  
+  // 입찰 프로젝트 상세 조회 (관리자 전용)
+  'GET /api/admin/bidding/project': async (req, res) => {
+    const session = verifySession(req);
+    if (!session || !session.isAdmin) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+      return;
+    }
+    
+    const urlParts = url.parse(req.url, true);
+    const projectId = urlParts.query.id;
+    
+    if (!projectId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '프로젝트 ID가 필요합니다.' }));
+      return;
+    }
+    
+    const project = biddingProjectsData.get(projectId);
+    if (!project) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '프로젝트를 찾을 수 없습니다.' }));
+      return;
+    }
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ project }));
+  },
+  
+  // 입찰 프로젝트 생성/업데이트 (관리자 전용)
+  'POST /api/admin/bidding/project': async (req, res, body) => {
+    const session = verifySession(req);
+    if (!session || !session.isAdmin) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '관리자 권한이 필요합니다.' }));
+      return;
+    }
+    
+    const { id, title, client, package: packageType, deadline, budget, description } = body;
+    
+    if (!title || !client || !packageType || !deadline) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '필수 필드가 뺄락습니다.' }));
+      return;
+    }
+    
+    const projectId = id || `bid-${Date.now()}`;
+    const project = {
+      id: projectId,
+      title,
+      client,
+      package: packageType,
+      deadline,
+      budget: parseInt(budget) || 0,
+      description: description || '',
+      status: 'active',
+      phase: 'kickoff',
+      manager: session.username,
+      created: id ? (biddingProjectsData.get(id)?.created || new Date().toISOString()) : new Date().toISOString(),
+      updated: new Date().toISOString(),
+      deliverables: [
+        { type: 'analysis', name: 'RFP 분석보고서', status: 'pending', file: '', updated: '' },
+        { type: 'proposal', name: '제안서', status: 'pending', file: '', updated: '' }
+      ],
+      milestones: [
+        { phase: 'kickoff', name: '킥오프 미팅', status: 'pending', date: '' },
+        { phase: 'analysis', name: 'RFP 분석 완료', status: 'pending', date: '' },
+        { phase: 'draft1', name: '1차 초안 완료', status: 'pending', date: '' },
+        { phase: 'draft2', name: '2차 초안 완료', status: 'pending', date: '' },
+        { phase: 'final', name: '최종 납품', status: 'pending', date: '' }
+      ]
+    };
+    
+    // 패키지 C인 경우 발표 추가
+    if (packageType === 'C') {
+      project.deliverables.push({
+        type: 'presentation', 
+        name: '발표자료', 
+        status: 'pending', 
+        file: '', 
+        updated: ''
+      });
+    }
+    
+    const success = saveBiddingProject(project);
+    
+    if (success) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: '프로젝트가 저장되었습니다.', project }));
+    } else {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '프로젝트 저장에 실패했습니다.' }));
+    }
+  },
+  
+  // 입찰 서비스 문의 (공개 API)
+  'POST /api/bidding/inquiry': async (req, res, body) => {
+    const { name, email, company, phone, project_title, deadline, package_type, budget, rfp_file, message } = body;
+    
+    if (!name || !email || !company || !project_title || !deadline || !package_type) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '필수 정보를 모두 입력해주세요.' }));
+      return;
+    }
+    
+    // 리드 스코어링
+    let score = 0;
+    const today = new Date();
+    const deadlineDate = new Date(deadline);
+    const daysLeft = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
+    
+    if (daysLeft >= 10) score += 3;
+    else if (daysLeft >= 3) score += 1;
+    
+    if (budget && budget !== '협의') score += 2;
+    if (rfp_file) score += 1;
+    
+    const lead = {
+      id: 'bid-' + Date.now(),
+      type: 'bidding',
+      name,
+      email,
+      company,
+      phone: phone || '',
+      project_title,
+      deadline,
+      package_type,
+      budget: budget || '협의',
+      rfp_file: rfp_file || '',
+      message: message || '',
+      score,
+      days_left: daysLeft,
+      status: 'new',
+      created: new Date().toISOString(),
+      source: 'bidding_form'
+    };
+    
+    leads.push(lead);
+    saveLeads();
+    
+    // 애널리틱스 이벤트 기록
+    analytics.conversions.chatToLead++;
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ 
+      message: '입찰 서비스 문의가 접수되었습니다. 빠른 시일 내에 연락드리겠습니다.',
+      leadId: lead.id,
+      score: lead.score
+    }));
+  },
+
   // 지식 베이스 업데이트 (관리자 전용)
   'POST /api/admin/ai/knowledge': async (req, res, body) => {
     const session = verifySession(req);
@@ -1552,6 +1821,7 @@ const server = http.createServer(async (req, res) => {
 loadData(); // 데이터 로드
 loadLeads(); // 리드 데이터 로드
 loadBlogPosts(); // 블로그 포스트 로드
+loadBiddingProjects(); // 입찰 프로젝트 로드
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 AI휴먼 플랫폼 서버가 포트 ${PORT}에서 실행 중입니다.`);
