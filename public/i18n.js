@@ -2,6 +2,8 @@
 class I18n {
     constructor() {
         this.currentLanguage = localStorage.getItem('language') || 'ko';
+        // 한국어로 강제 설정
+        localStorage.setItem('language', 'ko');
         this.translations = {
             ko: {
                 // 헤더 및 네비게이션

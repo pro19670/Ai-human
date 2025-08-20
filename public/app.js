@@ -940,6 +940,11 @@ function initEventListeners() {
 function init() {
   console.log('🚀 AI휴먼 플랫폼 초기화 중...');
   
+  // 한국어로 강제 설정
+  if (window.i18n) {
+    window.i18n.switchLanguage('ko');
+  }
+  
   // 기본 기능 초기화
   initEventListeners();
   initFAQ();
