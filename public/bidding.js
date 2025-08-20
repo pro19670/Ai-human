@@ -8,7 +8,7 @@ let selectedPackage = null;
 let leadScore = 0;
 
 // ===== DOM 요소 선택 =====
-const elements = {
+const biddingElements = {
   packageBtns: document.querySelectorAll('.btn-package'),
   inquiryForm: document.getElementById('biddingInquiryForm'),
   deadlineInput: document.getElementById('inquiry-deadline'),
@@ -18,7 +18,7 @@ const elements = {
 
 // ===== 패키지 선택 핸들러 =====
 function initPackageSelection() {
-  elements.packageBtns.forEach(btn => {
+  biddingElements.packageBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
       const packageType = e.target.dataset.package;
       selectPackage(packageType);
@@ -38,8 +38,8 @@ function selectPackage(packageType) {
   selectedCard.classList.add('selected');
   
   // 폼에 자동 설정
-  if (elements.packageSelect) {
-    elements.packageSelect.value = packageType;
+  if (biddingElements.packageSelect) {
+    biddingElements.packageSelect.value = packageType;
   }
   
   // 문의 폼으로 스크롤
@@ -60,7 +60,7 @@ function calculateLeadScore() {
   let score = 0;
   
   // 마감일 점수
-  const deadline = elements.deadlineInput?.value;
+  const deadline = biddingElements.deadlineInput?.value;
   if (deadline) {
     const today = new Date();
     const deadlineDate = new Date(deadline);
@@ -76,7 +76,7 @@ function calculateLeadScore() {
   }
   
   // 예산 점수
-  const budget = elements.budgetSelect?.value;
+  const budget = biddingElements.budgetSelect?.value;
   if (budget && budget !== '협의' && budget !== '') {
     score += 2;
   }
@@ -93,9 +93,9 @@ function calculateLeadScore() {
 
 // ===== 폼 제출 핸들러 =====
 function initInquiryForm() {
-  if (!elements.inquiryForm) return;
+  if (!biddingElements.inquiryForm) return;
   
-  elements.inquiryForm.addEventListener('submit', async (e) => {
+  biddingElements.inquiryForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const formData = new FormData(elements.inquiryForm);
@@ -105,7 +105,7 @@ function initInquiryForm() {
     const score = calculateLeadScore();
     
     // 로딩 상태
-    const submitBtn = elements.inquiryForm.querySelector('button[type="submit"]');
+    const submitBtn = biddingElements.inquiryForm.querySelector('button[type="submit"]');
     const originalText = submitBtn.textContent;
     submitBtn.textContent = '전송 중...';
     submitBtn.disabled = true;
@@ -123,7 +123,7 @@ function initInquiryForm() {
       
       if (response.ok) {
         showSuccess(`견적 문의가 접수되었습니다! (리드 스코어: ${result.score}/6점)`);
-        elements.inquiryForm.reset();
+        biddingElements.inquiryForm.reset();
         
         // 분석 이벤트
         if (window.gtag) {
@@ -153,8 +153,8 @@ function initInquiryForm() {
   });
   
   // 실시간 스코어링
-  elements.deadlineInput?.addEventListener('change', calculateLeadScore);
-  elements.budgetSelect?.addEventListener('change', calculateLeadScore);
+  biddingElements.deadlineInput?.addEventListener('change', calculateLeadScore);
+  biddingElements.budgetSelect?.addEventListener('change', calculateLeadScore);
   document.getElementById('inquiry-rfp')?.addEventListener('input', calculateLeadScore);
 }
 
@@ -295,15 +295,15 @@ function showNotification(message, type = 'info') {
 
 // ===== 마감일 입력 제한 =====
 function initDateRestrictions() {
-  if (elements.deadlineInput) {
+  if (biddingElements.deadlineInput) {
     // 오늘 날짜부터만 선택 가능
     const today = new Date().toISOString().split('T')[0];
-    elements.deadlineInput.min = today;
+    biddingElements.deadlineInput.min = today;
     
     // 1년 후까지만 선택 가능
     const maxDate = new Date();
     maxDate.setFullYear(maxDate.getFullYear() + 1);
-    elements.deadlineInput.max = maxDate.toISOString().split('T')[0];
+    biddingElements.deadlineInput.max = maxDate.toISOString().split('T')[0];
   }
 }
 
